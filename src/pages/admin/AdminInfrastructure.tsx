@@ -527,101 +527,73 @@ sudo certbot renew --dry-run`} />
             </div>
           </div>
 
-          <GuideSection id="deploy-req" title="1. Wymagania" icon={<Server size={16} style={{ color: '#6366f1' }} />}>
-            <ul style={{ paddingLeft: 20, display: 'grid', gap: 6 }}>
-              <li>Serwer VPS / dedykowany z Ubuntu 22.04+ (min. 1 vCPU, 1 GB RAM)</li>
-              <li>Domena (np. <strong>svnhost.pl</strong>) z dostępem do DNS</li>
-              <li>Node.js 18+ zainstalowany na serwerze</li>
-              <li>Nginx zainstalowany (<code>sudo apt install -y nginx</code>)</li>
-            </ul>
-            <div style={{ marginTop: 12, padding: 12, background: 'rgba(59,130,246,0.06)', borderRadius: 8, border: '1px solid rgba(59,130,246,0.15)' }}>
-              <p style={{ fontWeight: 600, color: '#3b82f6', marginBottom: 4 }}>💡 Struktura</p>
-              <p>Strona główna (React/Vite) → statyczne pliki HTML/JS/CSS obsługiwane przez Nginx</p>
-              <p>Panel / Backend (Node.js + Express) → uruchomiony jako serwis, proxy przez Nginx</p>
-            </div>
+          <GuideSection id="deploy-req" title="1. Wymagania i instalacja" icon={<Server size={16} style={{ color: '#6366f1' }} />}>
+            <CodeBlock lang="bash" code={`# Aktualizacja systemu
+sudo apt update && sudo apt upgrade -y
+
+# Instalacja Node.js 18+
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Instalacja Nginx + narzędzi
+sudo apt install -y nginx git curl
+
+# Sprawdź wersje
+node -v
+npm -v
+nginx -v`} />
           </GuideSection>
 
           <GuideSection id="deploy-dns" title="2. Konfiguracja DNS" icon={<Globe size={16} style={{ color: '#22c55e' }} />}>
-            <p>W panelu zarządzania domeną (np. OVH, Cloudflare, home.pl) dodaj rekordy DNS:</p>
-            <CodeBlock lang="dns" code={`# Rekord A — domena główna (strona + panel)
-Typ: A
-Nazwa: @
-Wartość: IP_TWOJEGO_SERWERA
-TTL: 3600
+            <CodeBlock lang="dns" code={`# W panelu domeny (OVH / Cloudflare / home.pl) dodaj:
 
-# Rekord A — subdomena www
-Typ: A
-Nazwa: www
-Wartość: IP_TWOJEGO_SERWERA
-TTL: 3600
-
-# Opcjonalnie — subdomena API (jeśli chcesz osobną)
-Typ: A
-Nazwa: api
-Wartość: IP_TWOJEGO_SERWERA
-TTL: 3600`} />
-            <p style={{ marginTop: 8, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Propagacja DNS może potrwać do 24h, ale zazwyczaj działa w kilka minut.</p>
+Typ: A   |  Nazwa: @    |  Wartość: IP_TWOJEGO_SERWERA  |  TTL: 3600
+Typ: A   |  Nazwa: www  |  Wartość: IP_TWOJEGO_SERWERA  |  TTL: 3600`} />
+            <CodeBlock lang="bash" code={`# Sprawdź czy DNS działa (po kilku minutach)
+dig +short twojadomena.pl
+dig +short www.twojadomena.pl`} />
           </GuideSection>
 
-          <GuideSection id="deploy-build" title="3. Build strony (Frontend)" icon={<HardDrive size={16} style={{ color: '#f97316' }} />}>
-            <p>Na swoim komputerze lub na serwerze zbuduj projekt Vite:</p>
-            <CodeBlock lang="bash" code={`# Sklonuj repozytorium (lub prześlij pliki przez SFTP)
-git clone https://github.com/twoj-user/svnhost.git
+          <GuideSection id="deploy-build" title="3. Klonowanie i build frontendu" icon={<HardDrive size={16} style={{ color: '#f97316' }} />}>
+            <CodeBlock lang="bash" code={`# Klonuj repo
+cd /opt
+git clone https://github.com/prodorzech/strona-svnhost.git svnhost
 cd svnhost
 
 # Instalacja zależności
 npm install
 
-# Ustaw URL backendu w .env (opcjonalnie)
-# Utwórz plik .env w głównym katalogu:
-echo 'VITE_API_URL=https://twojadomena.pl/api' > .env
+# Utwórz .env z adresem backendu
+cat > .env << 'EOF'
+VITE_API_URL=https://twojadomena.pl/api
+VITE_WS_URL=https://twojadomena.pl
+EOF
 
-# Build produkcyjny
+# Build
 npm run build
 
-# Wynikowe pliki statyczne znajdziesz w katalogu: dist/`} />
-            <p style={{ marginTop: 8 }}>Katalog <code>dist/</code> zawiera gotowe pliki HTML, JS, CSS do umieszczenia na serwerze.</p>
-          </GuideSection>
-
-          <GuideSection id="deploy-upload" title="4. Przesłanie plików na serwer" icon={<Server size={16} style={{ color: '#8b5cf6' }} />}>
-            <p>Prześlij zbudowane pliki na serwer:</p>
-            <CodeBlock lang="bash" code={`# Opcja A: Przez SCP (z komputera lokalnego)
-scp -r dist/* root@IP_SERWERA:/var/www/svnhost/
-
-# Opcja B: Przez rsync (szybsze przy aktualizacjach)
-rsync -avz --delete dist/ root@IP_SERWERA:/var/www/svnhost/
-
-# Opcja C: Build bezpośrednio na serwerze
-ssh root@IP_SERWERA
-cd /opt/svnhost
-git pull
-npm install
-npm run build
-cp -r dist/* /var/www/svnhost/`} />
-            <CodeBlock lang="bash" code={`# Na serwerze — utwórz katalog jeśli nie istnieje
+# Skopiuj pliki na serwer www
 sudo mkdir -p /var/www/svnhost
+sudo cp -r dist/* /var/www/svnhost/
 sudo chown -R www-data:www-data /var/www/svnhost`} />
           </GuideSection>
 
-          <GuideSection id="deploy-backend" title="5. Uruchomienie backendu" icon={<Cpu size={16} style={{ color: '#ec4899' }} />}>
-            <p>Backend (API + WebSocket) musi działać jako serwis systemowy:</p>
-            <CodeBlock lang="bash" code={`# Prześlij backend na serwer
-scp -r backend/* root@IP_SERWERA:/opt/svnhost-backend/
-
-# Na serwerze
-cd /opt/svnhost-backend
+          <GuideSection id="deploy-backend" title="4. Build i uruchomienie backendu" icon={<Cpu size={16} style={{ color: '#ec4899' }} />}>
+            <CodeBlock lang="bash" code={`# Build backendu
+cd /opt/svnhost/backend
 npm install
-npm run build`} />
-            <p style={{ marginTop: 8 }}>Utwórz serwis systemd:</p>
-            <CodeBlock lang="bash" code={`sudo nano /etc/systemd/system/svnhost-backend.service`} />
-            <CodeBlock lang="ini" code={`[Unit]
+npm run build
+
+# Utwórz serwis systemd
+sudo cat > /etc/systemd/system/svnhost-backend.service << 'EOF'
+[Unit]
 Description=SVNHost Backend API
 After=network.target mysql.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/svnhost-backend
+WorkingDirectory=/opt/svnhost/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5
@@ -632,128 +604,200 @@ Environment=MYSQL_ROOT_USER=svhhost_admin
 Environment=MYSQL_ROOT_PASS=TwojeSilneHaslo
 
 [Install]
-WantedBy=multi-user.target`} />
-            <CodeBlock lang="bash" code={`# Aktywacja i start
+WantedBy=multi-user.target
+EOF
+
+# Włącz i uruchom
 sudo systemctl daemon-reload
 sudo systemctl enable svnhost-backend
 sudo systemctl start svnhost-backend
 
-# Sprawdź status
+# Sprawdź
 sudo systemctl status svnhost-backend
-
-# Logi
 sudo journalctl -u svnhost-backend -f`} />
           </GuideSection>
 
-          <GuideSection id="deploy-nginx" title="6. Konfiguracja Nginx" icon={<Globe size={16} style={{ color: '#3b82f6' }} />}>
-            <p>Nginx serwuje stronę statyczną i przekierowuje żądania API do backendu:</p>
-            <CodeBlock lang="bash" code={`sudo nano /etc/nginx/sites-available/svnhost`} />
-            <CodeBlock lang="nginx" code={`server {
+          <GuideSection id="deploy-nginx" title="5. Konfiguracja Nginx" icon={<Globe size={16} style={{ color: '#3b82f6' }} />}>
+            <CodeBlock lang="bash" code={`# Utwórz konfigurację Nginx
+sudo cat > /etc/nginx/sites-available/svnhost << 'NGINX'
+server {
     listen 80;
     server_name twojadomena.pl www.twojadomena.pl;
 
-    # Strona główna (React SPA)
     root /var/www/svnhost;
     index index.html;
 
-    # React Router — wszystkie ścieżki → index.html
+    # React SPA — fallback na index.html
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files \$uri \$uri/ /index.html;
     }
 
-    # Proxy do backendu API
+    # Backend API proxy
     location /api/ {
         proxy_pass http://127.0.0.1:3001/api/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_read_timeout 86400;
     }
 
-    # Proxy WebSocket (Socket.IO)
+    # WebSocket (Socket.IO)
     location /socket.io/ {
         proxy_pass http://127.0.0.1:3001/socket.io/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
     }
 
-    # Cache statycznych zasobów
-    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+    # Cache statycznych plików
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)\$ {
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
-}`} />
-            <CodeBlock lang="bash" code={`# Aktywacja konfiguracji
+}
+NGINX
+
+# Aktywuj i zrestartuj
 sudo ln -sf /etc/nginx/sites-available/svnhost /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-
-# Test konfiguracji
 sudo nginx -t
-
-# Restart Nginx
 sudo systemctl reload nginx`} />
           </GuideSection>
 
-          <GuideSection id="deploy-ssl" title="7. Certyfikat SSL (HTTPS)" icon={<CheckCircle2 size={16} style={{ color: '#22c55e' }} />}>
-            <p>Zainstaluj darmowy certyfikat SSL od Let's Encrypt:</p>
-            <CodeBlock lang="bash" code={`# Instalacja Certbot z pluginem Nginx
+          <GuideSection id="deploy-ssl" title="6. Certyfikat SSL (HTTPS)" icon={<CheckCircle2 size={16} style={{ color: '#22c55e' }} />}>
+            <CodeBlock lang="bash" code={`# Instalacja Certbot
 sudo apt install -y certbot python3-certbot-nginx
 
-# Generowanie i auto-konfiguracja SSL
+# Wygeneruj certyfikat i skonfiguruj Nginx automatycznie
 sudo certbot --nginx -d twojadomena.pl -d www.twojadomena.pl
 
-# Certbot automatycznie:
-# - Wygeneruje certyfikat
-# - Zmodyfikuje konfigurację Nginx (doda listen 443 ssl)
-# - Doda przekierowanie HTTP → HTTPS
-# - Skonfiguruje auto-renewal
+# Sprawdź auto-odnowienie
+sudo certbot renew --dry-run
 
-# Sprawdź auto-renewal
-sudo certbot renew --dry-run`} />
-            <p style={{ marginTop: 8 }}>Po tej operacji strona będzie dostępna pod <strong>https://twojadomena.pl</strong> 🎉</p>
+# Gotowe — strona działa na https://twojadomena.pl`} />
           </GuideSection>
 
-          <GuideSection id="deploy-env" title="8. Zmienne środowiskowe frontendu" icon={<Info size={16} style={{ color: '#f59e0b' }} />}>
-            <p>Upewnij się, że frontend łączy się z backendem po właściwym URL. Przed buildem utwórz plik <code>.env</code>:</p>
-            <CodeBlock lang="bash" code={`# .env (w głównym katalogu projektu, przed npm run build)
-VITE_API_URL=https://twojadomena.pl/api
-VITE_WS_URL=https://twojadomena.pl`} />
-            <p style={{ marginTop: 8 }}>Jeśli backend jest na innym serwerze/porcie, dostosuj URL odpowiednio.</p>
-            <div style={{ marginTop: 12, padding: 12, background: 'rgba(245,158,11,0.06)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.15)' }}>
-              <p style={{ fontWeight: 600, color: '#f59e0b', marginBottom: 4 }}>⚠️ Ważne</p>
-              <p>Zmienne <code>VITE_*</code> są wbudowane w pliki JS <strong>podczas builda</strong>. Po zmianie <code>.env</code> musisz wykonać ponowny <code>npm run build</code> i przesłać nowe pliki.</p>
-            </div>
-          </GuideSection>
-
-          <GuideSection id="deploy-update" title="9. Aktualizacja strony" icon={<Server size={16} style={{ color: '#6366f1' }} />}>
-            <p>Aby zaktualizować stronę po wprowadzeniu zmian:</p>
+          <GuideSection id="deploy-update" title="7. Aktualizacja strony" icon={<Info size={16} style={{ color: '#f59e0b' }} />}>
             <CodeBlock lang="bash" code={`# Aktualizacja frontendu
 cd /opt/svnhost
 git pull
 npm install
 npm run build
-cp -r dist/* /var/www/svnhost/
+sudo cp -r dist/* /var/www/svnhost/
 
 # Aktualizacja backendu
-cd /opt/svnhost-backend
-git pull
+cd /opt/svnhost/backend
 npm install
 npm run build
 sudo systemctl restart svnhost-backend
 
-# Sprawdź czy działa
-curl -s https://twojadomena.pl/api/health | jq .`} />
-            <div style={{ marginTop: 14, padding: 14, background: 'rgba(34,197,94,0.06)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.15)' }}>
-              <p style={{ fontWeight: 600, color: '#22c55e', marginBottom: 4 }}>✓ Gotowe!</p>
-              <p>Po wykonaniu wszystkich kroków Twoja strona hostingowa będzie dostępna pod własną domeną z HTTPS. Panel zarządzania, API i WebSocket — wszystko działa za jednym Nginx reverse proxy.</p>
-            </div>
+# Sprawdź status
+sudo systemctl status svnhost-backend
+curl -s https://twojadomena.pl/api/health`} />
+          </GuideSection>
+
+          <GuideSection id="deploy-all" title="⚡ Szybki deploy — wszystko w jednym" icon={<Server size={16} style={{ color: '#6366f1' }} />}>
+            <CodeBlock lang="bash" code={`# === CAŁY DEPLOY OD ZERA (kopiuj-wklej) ===
+
+# 1. Instalacja
+sudo apt update && sudo apt upgrade -y
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs nginx git certbot python3-certbot-nginx
+
+# 2. Klonuj repo
+cd /opt
+git clone https://github.com/prodorzech/strona-svnhost.git svnhost
+cd svnhost
+
+# 3. Frontend
+cat > .env << 'EOF'
+VITE_API_URL=https://TWOJADOMENA.pl/api
+VITE_WS_URL=https://TWOJADOMENA.pl
+EOF
+npm install
+npm run build
+sudo mkdir -p /var/www/svnhost
+sudo cp -r dist/* /var/www/svnhost/
+sudo chown -R www-data:www-data /var/www/svnhost
+
+# 4. Backend
+cd /opt/svnhost/backend
+npm install
+npm run build
+
+sudo cat > /etc/systemd/system/svnhost-backend.service << 'EOF'
+[Unit]
+Description=SVNHost Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/svnhost/backend
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now svnhost-backend
+
+# 5. Nginx
+sudo cat > /etc/nginx/sites-available/svnhost << 'NGINX'
+server {
+    listen 80;
+    server_name TWOJADOMENA.pl www.TWOJADOMENA.pl;
+    root /var/www/svnhost;
+    index index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 86400;
+    }
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:3001/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)\$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+NGINX
+
+sudo ln -sf /etc/nginx/sites-available/svnhost /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+
+# 6. SSL
+sudo certbot --nginx -d TWOJADOMENA.pl -d www.TWOJADOMENA.pl
+
+# Gotowe! Strona: https://TWOJADOMENA.pl`} />
           </GuideSection>
         </div>
       )}
