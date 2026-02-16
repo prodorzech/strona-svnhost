@@ -1,0 +1,63 @@
+.cta-section {
+  background: var(--bg-secondary);
+}
+
+.cta-section__card {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 80px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-section__glow {
+  position: absolute;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: var(--red-600);
+  filter: blur(150px);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.cta-section__title {
+  font-size: 2.5rem;
+  font-weight: 900;
+  margin-bottom: 16px;
+  position: relative;
+  letter-spacing: -0.02em;
+}
+
+.cta-section__subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  max-width: 500px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+  position: relative;
+}
+
+.cta-section__buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .cta-section__card {
+    padding: 50px 24px;
+  }
+
+  .cta-section__title {
+    font-size: 1.8rem;
+  }
+}
