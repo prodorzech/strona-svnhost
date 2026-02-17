@@ -763,16 +763,22 @@ Endpointy API (/api/auth/):
           </GuideSection>
 
           <GuideSection id="db-cmd1" title="⚡ Komenda 1 — Instalacja zależności" icon={<Database size={16} style={{ color: '#22c55e' }} />}>
-            <p>Na serwerze, w katalogu projektu:</p>
+            <p>Sklonuje repo (jeśli brak) i zainstaluje zależności auth:</p>
             <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
-#  Instalacja zależności auth (SQLite + bcrypt)
+#  Klonowanie repo + instalacja zależności auth
 # ══════════════════════════════════════════════════════
 
+# Sklonuj repo jesli nie istnieje
+if [ ! -d ~/strona-svnhost ]; then
+  cd ~ && git clone https://github.com/prodorzech/strona-svnhost.git
+fi && \\
+
 cd ~/strona-svnhost/backend && \\
+npm install && \\
 npm install better-sqlite3 bcryptjs uuid && \\
 npm install -D @types/better-sqlite3 @types/bcryptjs @types/uuid && \\
 npm rebuild better-sqlite3 && \\
-echo 'Gotowe — zależnosci auth zainstalowane'`} />
+echo 'Gotowe — repo sklonowane, zaleznosci zainstalowane'`} />
           </GuideSection>
 
           <GuideSection id="db-cmd2" title="⚡ Komenda 2 — Test wszystkich endpointów" icon={<Key size={16} style={{ color: '#8b5cf6' }} />}>
@@ -812,7 +818,8 @@ echo "" && echo 'Wszystkie endpointy OK'`} />
 #  Backup bazy + zabezpieczenia produkcyjne
 # ══════════════════════════════════════════════════════
 
-DB="$HOME/strona-svnhost/backend/data/svnhost.db" && \\
+REPO="$HOME/strona-svnhost" && \\
+DB="$REPO/backend/data/svnhost.db" && \\
 mkdir -p ~/backups && \\
 
 # Backup teraz
@@ -822,7 +829,7 @@ cp "$DB" ~/backups/svnhost-$(date +%Y%m%d-%H%M).db && \\
 chmod 600 "$DB" && \\
 
 # Dodaj do .gitignore
-echo "backend/data/" >> ~/strona-svnhost/.gitignore && \\
+echo "backend/data/" >> "$REPO/.gitignore" && \\
 
 # Automatyczny backup codziennie o 3:00
 (crontab -l 2>/dev/null; echo "0 3 * * * cp $DB $HOME/backups/svnhost-\\$(date +\\%Y\\%m\\%d).db") | sort -u | crontab - && \\
