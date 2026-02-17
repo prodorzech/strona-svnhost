@@ -403,53 +403,15 @@ echo '⚠️  ZMIEN HASLA MySQL po instalacji.'`} />
             </div>
           </GuideSection>
 
-          <GuideSection id="wings-cmd" title="⚡ Komenda 2 — Wings / Pterodactyl (opcjonalnie)" icon={<Cpu size={16} style={{ color: '#f97316' }} />}>
-            <p>Jeśli chcesz używać Pterodactyl Wings do zarządzania serwerami gier:</p>
-            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
-#  Wings (Pterodactyl) — daemon do zarządzania serwerami
-# ══════════════════════════════════════════════════════
-
-mkdir -p /etc/pterodactyl /srv/daemon-data && \\
-curl -L -o /usr/local/bin/wings \\
-  "https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64" && \\
-chmod u+x /usr/local/bin/wings && \\
-
-# Serwis systemd
-cat > /etc/systemd/system/wings.service << 'EOF'
-[Unit]
-Description=Pterodactyl Wings Daemon
-After=docker.service
-Requires=docker.service
-PartOf=docker.service
-
-[Service]
-User=root
-WorkingDirectory=/etc/pterodactyl
-LimitNOFILE=4096
-PIDFile=/var/run/wings/daemon.pid
-ExecStart=/usr/local/bin/wings
-Restart=on-failure
-StartLimitInterval=180
-StartLimitBurst=30
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload && systemctl enable --now wings && \\
-echo "✅ Wings zainstalowany. Wklej config z panelu Pterodactyl do /etc/pterodactyl/config.yml"`} />
-          </GuideSection>
-
-          <GuideSection id="ssl-domain" title="⚡ Komenda 3 — SSL + podłączenie Node'a" icon={<Globe size={16} style={{ color: '#0ea5e9' }} />}>
-            <p>Certyfikat SSL + podłącz Node w panelu:</p>
+          <GuideSection id="ssl-domain" title="⚡ Komenda 2 — SSL (opcjonalnie)" icon={<Globe size={16} style={{ color: '#0ea5e9' }} />}>
+            <p>Certyfikat SSL od Let's Encrypt — zamień <strong>DOMENA</strong> na swoją domenę:</p>
             <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
 #  SSL (Let's Encrypt) — zamień DOMENA na swoją
 # ══════════════════════════════════════════════════════
 
 certbot certonly --standalone -d DOMENA -d www.DOMENA && \\
 certbot renew --dry-run && \\
-echo "✅ SSL gotowy dla DOMENA"`} />
+echo 'SSL gotowy dla DOMENA'`} />
             <div style={{ marginTop: 14, padding: 14, background: 'rgba(34,197,94,0.06)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.15)' }}>
               <p style={{ fontWeight: 600, color: '#22c55e', marginBottom: 4 }}>📌 Podłączenie Node'a do panelu</p>
               <p>Po instalacji przejdź do zakładki <strong>"Node'y"</strong> → <strong>"Dodaj Node"</strong> → wpisz IP serwera, lokalizację i zasoby. Nowe serwery klientów będą automatycznie przydzielane do node'ów z wolnymi slotami.</p>
