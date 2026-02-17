@@ -262,6 +262,8 @@ export function ServerDetail() {
   const isVps = server.type === 'vps' || server.type === 'vds';
   const isFiveM = server.type === 'fivem';
   const isMinecraft = server.type === 'minecraft';
+  const isBot = server.type === 'bot';
+  const needsSftp = isGame || isBot;
   // Merge backend data for VPS SSH credentials
   const sshUser = (real.backendServer as any)?.sshUser || server.sshUser || 'admin';
   const sshPassword = (real.backendServer as any)?.sshPassword || server.sshPassword || '';
@@ -584,35 +586,38 @@ export function ServerDetail() {
               </div>
             ))}
           </div>
-          {/* SFTP info for game servers */}
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <h4 style={{ fontWeight: 600, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem' }}>
-              <FolderTree size={16} style={{ color: '#f97316' }} /> Pliki serwera (SFTP)
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-tertiary)' }}>WinSCP / FileZilla</span>
-            </h4>
-            <div style={{ padding: '10px 14px', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 'var(--radius-md)', marginBottom: 12, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              Zarządzaj plikami serwera przez <strong>WinSCP</strong> lub <strong>FileZilla</strong>. Protokół: <strong>SFTP</strong>.
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-              {[
-                { label: 'Protokół', value: 'SFTP', key: 'gsftp-proto' },
-                { label: 'Host', value: server.ip, key: 'gsftp-host' },
-                { label: 'Port', value: String(sshPort || 22), key: 'gsftp-port' },
-                { label: 'Użytkownik', value: sshUser || 'svnhost', key: 'gsftp-user' },
-                { label: 'Hasło', value: sshPassword || '—', key: 'gsftp-pass' },
-              ].map(item => (
-                <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', transition: 'transform 0.2s' }}>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>{item.label}</div>
-                    <code style={{ fontSize: '0.85rem' }}>{item.key === 'gsftp-pass' ? '••••••••' : item.value}</code>
-                  </div>
-                  <button onClick={() => handleCopy(item.value, item.key)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                    {copied === item.key ? <Check size={16} color="#22c55e" /> : <Copy size={16} />}
-                  </button>
+        </div>
+      )}
+
+      {/* SFTP connection info for game servers + bots */}
+      {needsSftp && (
+        <div className="dash-card animate-fadeInUp" style={{ marginBottom: 24 }}>
+          <h3 style={{ fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FolderTree size={18} style={{ color: '#f97316' }} /> Połączenie SFTP
+            <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-tertiary)', marginLeft: 4 }}>WinSCP / FileZilla</span>
+          </h3>
+          <div style={{ padding: '10px 14px', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 'var(--radius-md)', marginBottom: 14, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            Zarządzaj plikami {isBot ? 'bota' : 'serwera'} przez <strong>WinSCP</strong> lub <strong>FileZilla</strong>. Protokół: <strong>SFTP</strong> (nie zwykły FTP).
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+            {[
+              { label: 'Protokół', value: 'SFTP', key: 'gsftp-proto' },
+              { label: 'Host', value: server.ip, key: 'gsftp-host' },
+              { label: 'Port', value: String(sshPort || 22), key: 'gsftp-port' },
+              { label: 'Użytkownik', value: sshUser || 'svnhost', key: 'gsftp-user' },
+              { label: 'Hasło', value: sshPassword || '—', key: 'gsftp-pass' },
+            ].map(item => (
+              <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', transition: 'transform 0.2s' }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>{item.label}</div>
+                  <code style={{ fontSize: '0.85rem' }}>{item.key === 'gsftp-pass' ? '••••••••' : item.value}</code>
                 </div>
-              ))}
-            </div>
+                <button onClick={() => handleCopy(item.value, item.key)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  {copied === item.key ? <Check size={16} color="#22c55e" /> : <Copy size={16} />}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
