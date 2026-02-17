@@ -534,6 +534,12 @@ export function ServerDetail() {
             <FolderTree size={18} style={{ color: '#f97316' }} /> Połączenie SFTP
             <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-tertiary)', marginLeft: 4 }}>WinSCP / FileZilla</span>
           </h3>
+          {server.ip === '127.0.0.1' && (
+            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 'var(--radius-md)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <AlertTriangle size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.82rem', color: '#f59e0b' }}>Tryb lokalny — SFTP niedostępne. Podepnij node w panelu admina, aby uzyskać połączenie SFTP.</span>
+            </div>
+          )}
           <div style={{ padding: '10px 14px', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 'var(--radius-md)', marginBottom: 14, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             Połącz się z serwerem przez SFTP używając <strong>WinSCP</strong> lub <strong>FileZilla</strong>. Protokół: <strong>SFTP</strong> (nie zwykły FTP).
           </div>
@@ -596,6 +602,12 @@ export function ServerDetail() {
             <FolderTree size={18} style={{ color: '#f97316' }} /> Połączenie SFTP
             <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-tertiary)', marginLeft: 4 }}>WinSCP / FileZilla</span>
           </h3>
+          {server.ip === '127.0.0.1' && (
+            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 'var(--radius-md)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <AlertTriangle size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.82rem', color: '#f59e0b' }}>Tryb lokalny — SFTP niedostępne. Podepnij node w panelu admina, aby uzyskać połączenie SFTP.</span>
+            </div>
+          )}
           <div style={{ padding: '10px 14px', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 'var(--radius-md)', marginBottom: 14, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             Zarządzaj plikami {isBot ? 'bota' : 'serwera'} przez <strong>WinSCP</strong> lub <strong>FileZilla</strong>. Protokół: <strong>SFTP</strong> (nie zwykły FTP).
           </div>
