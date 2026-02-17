@@ -37,7 +37,7 @@ export interface UserSession {
 export interface User {
   id: string;
   email: string;
-  password: string; // In real app, hashed
+  password?: string; // Not used with backend auth
   username: string;
   role: UserRole;
   balance: number;
@@ -261,6 +261,7 @@ export interface HostingNode {
   usedCpu: number;
   usedRamMb: number;
   usedDiskGb: number;
+  maxServers: number; // 0 = unlimited
   status: 'online' | 'offline' | 'maintenance';
   createdAt: string;
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { register } from '../../store/store';
+import { backendApi, setToken } from '../../services/backendApi';
+import { setCurrentUserFromApi } from '../../store/store';
 import { UserPlus, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { getLogoForAccent } from '../../utils/logo';
 import './Auth.css';
@@ -15,25 +16,30 @@ export function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (password !== password2) {
-      setError('Passwords do not match');
+      setError('Hasła się nie zgadzają');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const result = register(email, username, password);
-      if (result.success) {
+    try {
+      const res = await backendApi.auth.register(email, username, password);
+      if (res.success && res.data) {
+        setToken(res.data.token);
+        setCurrentUserFromApi(res.data.user);
         navigate('/dashboard');
       } else {
-        setError(result.error || 'Registration failed');
+        setError(res.error || 'Rejestracja nie powiodła się');
       }
+    } catch {
+      setError('Błąd połączenia z serwerem');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (

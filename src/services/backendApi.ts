@@ -4,7 +4,39 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
 
+// ── Token management ────────────────────────────────────
+const TOKEN_KEY = 'svnhost_token';
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 // ── Types ───────────────────────────────────────────────
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  balance: number;
+  createdAt: string;
+  avatar: string | null;
+  fullName: string | null;
+  bio: string | null;
+  phone: string | null;
+  language: string;
+  timezone: string;
+  twoFa: number;
+  loginAlerts: number;
+}
+
 export interface BackendServer {
   id: string;
   userId: string;
@@ -42,17 +74,55 @@ export interface ApiResponse<T = unknown> {
 // ── API Calls ───────────────────────────────────────────
 async function apiCall<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
   try {
+    const token = getToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     const res = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       ...options,
     });
-    return await res.json();
+    const json = await res.json();
+    // Auto-logout on 401
+    if (res.status === 401) {
+      clearToken();
+    }
+    return json;
   } catch (err: any) {
     return { success: false, error: err.message || 'Connection failed' };
   }
 }
 
 export const backendApi = {
+  // ── Auth ──────────────────────────────────────────────
+  auth: {
+    register: (email: string, username: string, password: string) =>
+      apiCall<{ user: AuthUser; token: string }>('/auth/register', {
+        method: 'POST', body: JSON.stringify({ email, username, password }),
+      }),
+    login: (email: string, password: string) =>
+      apiCall<{ user: AuthUser; token: string }>('/auth/login', {
+        method: 'POST', body: JSON.stringify({ email, password }),
+      }),
+    me: () => apiCall<AuthUser>('/auth/me'),
+    logout: () => apiCall('/auth/logout', { method: 'POST' }),
+    logoutAll: () => apiCall('/auth/logout-all', { method: 'POST' }),
+    updateProfile: (data: Partial<Pick<AuthUser, 'username' | 'fullName' | 'bio' | 'phone' | 'language' | 'timezone' | 'avatar'>> & { twoFa?: boolean; loginAlerts?: boolean }) =>
+      apiCall<AuthUser>('/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      apiCall<{ message: string; token: string }>('/auth/change-password', {
+        method: 'POST', body: JSON.stringify({ currentPassword, newPassword }),
+      }),
+    sessions: () => apiCall<any[]>('/auth/sessions'),
+    // Admin
+    getUsers: () => apiCall<AuthUser[]>('/auth/admin/users'),
+    getUser: (id: string) => apiCall<AuthUser & { serversCount: number }>(`/auth/admin/users/${id}`),
+    updateUser: (id: string, data: { role?: string; balance?: number; username?: string }) =>
+      apiCall<AuthUser>(`/auth/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteUser: (id: string) => apiCall(`/auth/admin/users/${id}`, { method: 'DELETE' }),
+  },
+
   // Health check
   health: () => apiCall<{ status: string; fxServerInstalled: boolean }>('/health'),
 

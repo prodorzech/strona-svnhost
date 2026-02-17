@@ -5,6 +5,7 @@ import { Server as SocketIO } from 'socket.io';
 import dotenv from 'dotenv';
 import { initDatabase } from './database';
 import routes from './routes';
+import authRouter from './authRoutes';
 import { shutdownAll } from './serverManager';
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // ── API Routes ─────────────────────────────────────────
+app.use('/api/auth', authRouter);
 app.use('/api', routes);
 
 // ── Socket.IO Events ───────────────────────────────────

@@ -1,5 +1,5 @@
 ﻿import type {
-  StoreState, User, Server, Transaction, PromoCode, Ticket, TicketMessage,
+  StoreState, User, UserRole, Server, Transaction, PromoCode, Ticket, TicketMessage,
   ServicePlan, ServerType, ServerStatus, TransactionType, FileNode, Backup, StartupConfig,
   TicketPriority, TicketCategory, Database, HostingNode, AdminSettings,
   TxAdminPlayer, TxAdminBan, TxAdminResource, TxAdminSchedule, TxAdminData,
@@ -250,6 +250,8 @@ function loadState(): StoreState {
       }
       // Ensure new fields exist
       if (!parsed.nodes) parsed.nodes = [];
+      // Ensure maxServers field on old nodes
+      parsed.nodes = parsed.nodes.map((n: any) => ({ ...n, maxServers: n.maxServers ?? 0 }));
       if (!parsed.adminSettings) parsed.adminSettings = defaultAdminSettings;
       else parsed.adminSettings = { ...defaultAdminSettings, ...parsed.adminSettings };
       if (!parsed.customConfig) parsed.customConfig = defaultCustomConfig;
@@ -298,14 +300,30 @@ function uid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function countServersOnNode(nodeIp: string): number {
+  return state.servers.filter(s => s.ip === nodeIp).length;
+}
+
+/** Pick the first online node that still has capacity (maxServers).
+ *  If a node is full, skip it and try the next one.
+ *  maxServers === 0 means unlimited. */
 function getServerIp(): string {
   if (state.nodes.length === 0) {
     return '127.0.0.1';
   }
   const onlineNodes = state.nodes.filter(n => n.status === 'online');
-  if (onlineNodes.length > 0) {
-    return onlineNodes[Math.floor(Math.random() * onlineNodes.length)].ip;
+  for (const node of onlineNodes) {
+    if (node.maxServers === 0 || countServersOnNode(node.ip) < node.maxServers) {
+      return node.ip;
+    }
   }
+  // All online nodes full – try any node (first with capacity, then fallback)
+  for (const node of state.nodes) {
+    if (node.maxServers === 0 || countServersOnNode(node.ip) < node.maxServers) {
+      return node.ip;
+    }
+  }
+  // Absolute fallback – all nodes at max, use first node anyway
   return state.nodes[0].ip;
 }
 
@@ -354,60 +372,73 @@ function getNextTxAdminPort(): number {
   return base + existingPorts.length;
 }
 
-// ── Auth actions ────────────────────────────────────────────
-export function register(email: string, username: string, password: string): { success: boolean; error?: string } {
-  if (state.users.find(u => u.email === email)) return { success: false, error: 'Email already exists' };
-  if (state.users.find(u => u.username === username)) return { success: false, error: 'Username already exists' };
-  if (password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
+// ── Auth actions (backed by backend API) ────────────────
+// These are now thin wrappers – real auth happens in Login.tsx / Register.tsx
+// via backendApi. The store just caches the current user.
 
-  const userId = uid();
+import { backendApi, getToken, clearToken, AuthUser } from '../services/backendApi';
+
+/** Cache the backend user into the store so getCurrentUser() keeps working */
+export function setCurrentUserFromApi(apiUser: AuthUser): void {
   const user: User = {
-    id: userId,
-    email,
-    username,
-    password,
-    role: 'user',
-    balance: 0,
-    createdAt: new Date().toISOString(),
-    sessions: [{
-      id: 'sess_' + uid(),
-      device: detectDevice(),
-      browser: detectBrowser(),
-      ip: generateFakeIp(),
-      location: 'Polska',
-      lastActive: new Date().toISOString(),
-      current: true,
-    }],
+    id: apiUser.id,
+    email: apiUser.email,
+    username: apiUser.username,
+    role: apiUser.role as UserRole,
+    balance: apiUser.balance,
+    createdAt: apiUser.createdAt,
+    avatar: apiUser.avatar || undefined,
+    fullName: apiUser.fullName || undefined,
+    bio: apiUser.bio || undefined,
+    phone: apiUser.phone || undefined,
+    language: apiUser.language,
+    timezone: apiUser.timezone,
+    twoFa: !!apiUser.twoFa,
+    loginAlerts: !!apiUser.loginAlerts,
   };
-  state = { ...state, users: [...state.users, user], currentUserId: user.id };
+  // Upsert user in state
+  const exists = state.users.find(u => u.id === user.id);
+  if (exists) {
+    state = { ...state, users: state.users.map(u => u.id === user.id ? { ...u, ...user } : u), currentUserId: user.id };
+  } else {
+    state = { ...state, users: [...state.users, user], currentUserId: user.id };
+  }
   notify();
-  return { success: true };
 }
 
+/** Load current user from backend token on app start */
+export async function loadCurrentUser(): Promise<User | null> {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const res = await backendApi.auth.me();
+    if (res.success && res.data) {
+      setCurrentUserFromApi(res.data);
+      return getCurrentUser();
+    } else {
+      clearToken();
+      state = { ...state, currentUserId: null };
+      notify();
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Legacy sync register – kept for compatibility but now a no-op stub.
+ *  Real registration goes through Login.tsx -> backendApi.auth.register()
+ */
+export function register(email: string, username: string, password: string): { success: boolean; error?: string } {
+  // This is a stub – real registration is async via backendApi
+  console.warn('[store] register() is deprecated – use backendApi.auth.register() instead');
+  return { success: false, error: 'Use the API' };
+}
+
+/** Legacy sync login – kept for compatibility but now a no-op stub. */
 export function login(email: string, password: string): { success: boolean; error?: string } {
-  const user = state.users.find(u => u.email === email && u.password === password);
-  if (!user) return { success: false, error: 'Invalid email or password' };
-  // Add current session
-  const currentSession: import('./types').UserSession = {
-    id: 'sess_' + uid(),
-    device: detectDevice(),
-    browser: detectBrowser(),
-    ip: generateFakeIp(),
-    location: 'Polska',
-    lastActive: new Date().toISOString(),
-    current: true,
-  };
-  const updatedUser = {
-    ...user,
-    sessions: [currentSession, ...(user.sessions || []).filter(s => !s.current)],
-  };
-  state = {
-    ...state,
-    currentUserId: user.id,
-    users: state.users.map(u => u.id === user.id ? updatedUser : u),
-  };
-  notify();
-  return { success: true };
+  console.warn('[store] login() is deprecated – use backendApi.auth.login() instead');
+  return { success: false, error: 'Use the API' };
 }
 
 function detectDevice(): string {
@@ -437,19 +468,13 @@ function generateFakeIp(): string {
 }
 
 export function logout(): void {
-  // Mark current session as ended
-  if (state.currentUserId) {
-    state = {
-      ...state,
-      users: state.users.map(u => {
-        if (u.id !== state.currentUserId) return u;
-        return { ...u, sessions: (u.sessions || []).map(s => ({ ...s, current: false, lastActive: new Date().toISOString() })) };
-      }),
-      currentUserId: null,
-    };
-  } else {
-    state = { ...state, currentUserId: null };
+  // Call backend logout (fire-and-forget)
+  const token = getToken();
+  if (token) {
+    backendApi.auth.logout().catch(() => {});
   }
+  clearToken();
+  state = { ...state, currentUserId: null };
   notify();
 }
 

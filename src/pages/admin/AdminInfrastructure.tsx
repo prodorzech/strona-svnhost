@@ -26,6 +26,7 @@ export function AdminInfrastructure() {
   const [totalCpu, setTotalCpu] = useState('8');
   const [totalRam, setTotalRam] = useState('32768');
   const [totalDisk, setTotalDisk] = useState('500');
+  const [maxServers, setMaxServers] = useState('0');
 
   // Edit form
   const [editData, setEditData] = useState<Partial<HostingNode>>({});
@@ -48,6 +49,7 @@ export function AdminInfrastructure() {
       totalCpu: parseInt(totalCpu),
       totalRamMb: parseInt(totalRam),
       totalDiskGb: parseInt(totalDisk),
+      maxServers: parseInt(maxServers) || 0,
       usedCpu: 0,
       usedRamMb: 0,
       usedDiskGb: 0,
@@ -55,7 +57,7 @@ export function AdminInfrastructure() {
     });
     setShowAdd(false);
     setName(''); setIp(''); setLocation('');
-    setTotalCpu('8'); setTotalRam('32768'); setTotalDisk('500');
+    setTotalCpu('8'); setTotalRam('32768'); setTotalDisk('500'); setMaxServers('0');
   };
 
   const handleEdit = (nodeId: string) => {
@@ -180,6 +182,12 @@ export function AdminInfrastructure() {
                         { value: 'maintenance', label: 'Konserwacja' },
                       ]}
                     />
+                    <div>
+                      <label className="dash-label" style={{ fontSize: '0.78rem', marginBottom: 4 }}>Max serwerów (0 = bez limitu)</label>
+                      <input className="dash-input" type="number" min="0"
+                        value={editData.maxServers ?? node.maxServers ?? 0}
+                        onChange={e => setEditData({ ...editData, maxServers: parseInt(e.target.value) || 0 })} />
+                    </div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                       <button className="btn btn--ghost" onClick={() => { setEditId(null); setEditData({}); }}
                         style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -235,11 +243,23 @@ export function AdminInfrastructure() {
 
                     {/* Resources */}
                     {(() => {
-                      // Calculate real usage from all servers
-                      const totalUsedCpu = store.servers.reduce((sum, s) => sum + (s.cpuCores || 0), 0);
-                      const totalUsedRamMb = store.servers.reduce((sum, s) => sum + (s.ramMb || 0), 0);
-                      const totalUsedDiskGb = store.servers.reduce((sum, s) => sum + (s.diskGb || 0), 0);
+                      // Calculate real usage from servers on THIS node
+                      const nodeServers = store.servers.filter(s => s.ip === node.ip);
+                      const serverCount = nodeServers.length;
+                      const totalUsedCpu = nodeServers.reduce((sum, s) => sum + (s.cpuCores || 0), 0);
+                      const totalUsedRamMb = nodeServers.reduce((sum, s) => sum + (s.ramMb || 0), 0);
+                      const totalUsedDiskGb = nodeServers.reduce((sum, s) => sum + (s.diskGb || 0), 0);
+                      const serverPct = node.maxServers ? Math.round((serverCount / node.maxServers) * 100) : 0;
                       return (
+                    <>
+                    <div style={{ background: 'var(--bg-input)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                      <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Server size={13} /> Serwery na tym node
+                      </span>
+                      <span style={{ fontWeight: 700, color: serverPct > 80 ? '#ef4444' : serverPct > 60 ? '#f59e0b' : 'var(--text-primary)' }}>
+                        {serverCount}{node.maxServers > 0 ? ` / ${node.maxServers}` : ''}{node.maxServers === 0 ? ' (bez limitu)' : ''}
+                      </span>
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, fontSize: '0.8rem' }}>
                       {[
                         { icon: <Cpu size={13} />, label: 'CPU', used: totalUsedCpu, total: node.totalCpu, unit: ' rdzeni' },
@@ -260,6 +280,7 @@ export function AdminInfrastructure() {
                         );
                       })}
                     </div>
+                    </>
                       );
                     })()}
                   </div>
@@ -303,6 +324,8 @@ export function AdminInfrastructure() {
                     <div><label className="dash-label">Dysk (GB)</label>
                       <input className="dash-input" type="number" value={totalDisk} onChange={e => setTotalDisk(e.target.value)} /></div>
                   </div>
+                  <div><label className="dash-label">Max serwerów (0 = bez limitu)</label>
+                    <input className="dash-input" type="number" min="0" value={maxServers} onChange={e => setMaxServers(e.target.value)} /></div>
                   <button className="btn btn--primary" onClick={handleAdd} style={{ padding: '12px', marginTop: 4 }}>
                     <Plus size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} /> Dodaj Node
                   </button>

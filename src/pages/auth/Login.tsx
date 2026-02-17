@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../../store/store';
+import { backendApi, setToken } from '../../services/backendApi';
+import { setCurrentUserFromApi } from '../../store/store';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { getLogoForAccent } from '../../utils/logo';
 import './Auth.css';
@@ -13,20 +14,25 @@ export function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const result = login(email, password);
-      if (result.success) {
+    try {
+      const res = await backendApi.auth.login(email, password);
+      if (res.success && res.data) {
+        setToken(res.data.token);
+        setCurrentUserFromApi(res.data.user);
         navigate('/dashboard');
       } else {
-        setError(result.error || 'Login failed');
+        setError(res.error || 'Logowanie nie powiodło się');
       }
+    } catch {
+      setError('Błąd połączenia z serwerem');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (

@@ -4,8 +4,9 @@ import type { Language } from './i18n';
 import { translations } from './i18n';
 import { AppContext } from './context';
 import type { Theme } from './context';
-import { getCurrentUser } from './store/store';
+import { getCurrentUser, loadCurrentUser } from './store/store';
 import { useStoreState } from './store/useStore';
+import { getToken } from './services/backendApi';
 
 // Landing page
 import { Navbar } from './components/Navbar';
@@ -68,16 +69,18 @@ function LandingPage() {
   );
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const _store = useStoreState(); // subscribe to store changes
+function ProtectedRoute({ children, authLoading }: { children: React.ReactNode; authLoading: boolean }) {
+  const _store = useStoreState();
   const user = getCurrentUser();
+  if (authLoading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>Ładowanie...</div>;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
-function AdminRoute({ children }: { children: React.ReactNode }) {
+function AdminRoute({ children, authLoading }: { children: React.ReactNode; authLoading: boolean }) {
   const _store = useStoreState();
   const user = getCurrentUser();
+  if (authLoading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>Ładowanie...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
@@ -108,6 +111,13 @@ export function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
 
+  // ── Restore session from backend token on startup ────
+  const [authLoading, setAuthLoading] = useState(() => !!getToken());
+  useEffect(() => {
+    if (!getToken()) return;
+    loadCurrentUser().finally(() => setAuthLoading(false));
+  }, []);
+
   const t = translations[language];
 
   return (
@@ -124,7 +134,7 @@ export function App() {
 
           {/* Dashboard */}
           <Route path="/dashboard" element={
-            <ProtectedRoute><DashboardLayout /></ProtectedRoute>
+            <ProtectedRoute authLoading={authLoading}><DashboardLayout /></ProtectedRoute>
           }>
             <Route index element={<DashboardHome />} />
             <Route path="servers" element={<ServersPage />} />
@@ -138,7 +148,7 @@ export function App() {
 
           {/* Admin */}
           <Route path="/admin" element={
-            <AdminRoute><AdminLayout /></AdminRoute>
+            <AdminRoute authLoading={authLoading}><AdminLayout /></AdminRoute>
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
