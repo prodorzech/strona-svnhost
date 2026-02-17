@@ -728,254 +728,113 @@ sudo certbot --nginx -d TWOJADOMENA.pl -d www.TWOJADOMENA.pl
               <div>
                 <h3 style={{ fontWeight: 700, marginBottom: 4 }}>Baza danych &mdash; system logowania (SQLite + bcrypt)</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-                  Panel SVNHost używa SQLite (better-sqlite3) jako bazy danych. Logowanie, rejestracja, sesje i użytkownicy są przechowywane w pliku <code>backend/data/svnhost.db</code>. Hasła hashowane bcrypt. Bez MongoDB.
+                  Panel SVNHost używa SQLite (better-sqlite3) jako bazy danych. Plik: <code>backend/data/svnhost.db</code>. Tabele: <code>users</code>, <code>sessions</code>, <code>servers</code>. Hasła: bcrypt. Sesje: UUID token. Domyślny admin: <code>admin@svnhost.pl</code> / <code>admin123</code>.
                 </p>
               </div>
             </div>
           </div>
 
-          <GuideSection id="db-overview" title="1. Architektura auth" icon={<Info size={16} style={{ color: '#6366f1' }} />}>
-            <p>System autoryzacji składa się z:</p>
-            <ul style={{ paddingLeft: 20, marginTop: 8, display: 'grid', gap: 6 }}>
-              <li><strong>SQLite</strong> &mdash; plik <code>backend/data/svnhost.db</code> (tabele: <code>users</code>, <code>sessions</code>, <code>servers</code>)</li>
-              <li><strong>bcryptjs</strong> &mdash; hashowanie haseł (salt rounds: 10)</li>
-              <li><strong>Token (UUID)</strong> &mdash; sesje bearer token w nagłówku <code>Authorization</code></li>
-              <li><strong>Middleware</strong> &mdash; <code>authMiddleware</code> weryfikuje token, <code>adminMiddleware</code> sprawdza rolę</li>
-            </ul>
-            <div style={{ marginTop: 14, padding: 14, background: 'rgba(34,197,94,0.06)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.15)' }}>
-              <p style={{ fontWeight: 600, color: '#22c55e', marginBottom: 4 }}>✅ Domyślne konto admina</p>
-              <p>Przy pierwszym uruchomieniu backendu automatycznie tworzone jest konto:<br/>
-              Email: <code>admin@svnhost.pl</code> &mdash; Hasło: <code>admin123</code><br/>
-              <strong>Zmień hasło natychmiast po pierwszym logowaniu!</strong></p>
-            </div>
-          </GuideSection>
-
-          <GuideSection id="db-install" title="2. Instalacja zależności" icon={<Database size={16} style={{ color: '#22c55e' }} />}>
-            <CodeBlock lang="bash" code={`cd ~/strona-svnhost/backend
-
-# Wymagane pakiety (powinny być w package.json)
-npm install better-sqlite3 bcryptjs
-npm install -D @types/better-sqlite3 @types/bcryptjs
-
-# Jeśli zmienisz wersję Node.js:
-npm rebuild better-sqlite3`} />
-          </GuideSection>
-
-          <GuideSection id="db-tables" title="3. Struktura tabel" icon={<HardDrive size={16} style={{ color: '#f59e0b' }} />}>
-            <p>Tabele tworzone automatycznie w <code>initDatabase()</code>:</p>
-            <CodeBlock lang="sql" code={`-- Tabela użytkowników
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  username TEXT UNIQUE NOT NULL,
-  passwordHash TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'user',    -- 'user' | 'admin'
-  balance REAL NOT NULL DEFAULT 0,
-  createdAt TEXT NOT NULL,
-  avatar TEXT,
-  fullName TEXT,
-  bio TEXT,
-  phone TEXT,
-  language TEXT DEFAULT 'pl',
-  timezone TEXT DEFAULT 'Europe/Warsaw',
-  twoFa INTEGER DEFAULT 0,
-  loginAlerts INTEGER DEFAULT 0
-);
-
--- Tabela sesji
-CREATE TABLE IF NOT EXISTS sessions (
-  token TEXT PRIMARY KEY,          -- UUID-UUID
-  userId TEXT NOT NULL,
-  device TEXT,
-  browser TEXT,
-  ip TEXT,
-  location TEXT,
-  createdAt TEXT NOT NULL,
-  lastActive TEXT NOT NULL,         -- aktualizowane przy każdym req
-  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
-);`} />
-          </GuideSection>
-
-          <GuideSection id="db-endpoints" title="4. Endpointy API" icon={<Key size={16} style={{ color: '#8b5cf6' }} />}>
-            <p>Wszystkie endpointy auth pod <code>/api/auth/</code>:</p>
-            <CodeBlock lang="text" code={`# ── Publiczne (bez tokenu) ──────────────────────
-POST /api/auth/register     { email, username, password }
-  → 201 { user, token }
-
-POST /api/auth/login        { email, password }
-  → 200 { user, token }
-
-# ── Chronione (Bearer token) ───────────────────
-GET  /api/auth/me
-  → 200 { user }
-
-POST /api/auth/logout
-  → 200 { message }
-
-POST /api/auth/logout-all
-  → 200 { message }   (wyloguj ze wszystkich urządzeń)
-
-PUT  /api/auth/profile      { username?, fullName?, bio?, ... }
-  → 200 { user }
-
-POST /api/auth/change-password  { currentPassword, newPassword }
-  → 200 { message, token }   (nowy token, stare sesje usunięte)
-
-GET  /api/auth/sessions
-  → 200 [ { token, device, browser, ip, lastActive } ]
-
-# ── Admin only ─────────────────────────────────
-GET    /api/auth/admin/users
-GET    /api/auth/admin/users/:id
-PUT    /api/auth/admin/users/:id   { role?, balance?, username? }
-DELETE /api/auth/admin/users/:id`} />
-          </GuideSection>
-
-          <GuideSection id="db-frontend" title="5. Frontend — jak działa logowanie" icon={<Lock size={16} style={{ color: '#ef4444' }} />}>
-            <p>Flow logowania po stronie frontendu:</p>
-            <CodeBlock lang="typescript" code={`// 1. Login.tsx — wysyła request do backendu
-const res = await backendApi.auth.login(email, password);
-if (res.success && res.data) {
-  setToken(res.data.token);              // zapisz token w localStorage
-  setCurrentUserFromApi(res.data.user);  // cache user w store
-  navigate('/dashboard');
-}
-
-// 2. Każdy request do API automatycznie dodaje token:
-// backendApi.ts → apiCall() → headers['Authorization'] = 'Bearer <token>'
-
-// 3. Na odświeżenie strony — App.tsx:
-useEffect(() => {
-  if (!getToken()) return;
-  loadCurrentUser().finally(() => setAuthLoading(false));
-}, []);
-// loadCurrentUser() wywołuje GET /api/auth/me z zapisanym tokenem
-
-// 4. Wylogowanie:
-export function logout() {
-  backendApi.auth.logout();  // DELETE sesji w bazie
-  clearToken();              // usuń z localStorage
-  state.currentUserId = null;
-}`} />
-          </GuideSection>
-
-          <GuideSection id="db-middleware" title="6. Middleware — zabezpieczanie endpointów" icon={<Lock size={16} style={{ color: '#f97316' }} />}>
-            <p>Jak chronić własne endpointy:</p>
-            <CodeBlock lang="typescript" code={`// backend/src/authMiddleware.ts
-import { authMiddleware, adminMiddleware, AuthRequest } from './authMiddleware';
-
-// Endpoint wymaga logowania:
-router.get('/my-data', authMiddleware, (req: AuthRequest, res) => {
-  // req.user — zalogowany użytkownik (SafeUser)
-  // req.token — aktualny token sesji
-  res.json({ user: req.user });
-});
-
-// Endpoint wymaga admina:
-router.delete('/dangerous',
-  authMiddleware,      // najpierw: czy zalogowany?
-  adminMiddleware,     // potem: czy admin?
-  (req: AuthRequest, res) => {
-    // tylko admin dotrze tutaj
-  }
-);`} />
-          </GuideSection>
-
-          <GuideSection id="db-test" title="7. Testowanie z curl" icon={<Copy size={16} style={{ color: '#06b6d4' }} />}>
-            <CodeBlock lang="bash" code={`# ── Rejestracja ─────────────────────────────────
-curl -X POST http://localhost:3001/api/auth/register \\
-  -H "Content-Type: application/json" \\
-  -d '{"email":"user@test.pl","username":"TestUser","password":"test123"}'
-
-# ── Logowanie ───────────────────────────────────
-curl -X POST http://localhost:3001/api/auth/login \\
-  -H "Content-Type: application/json" \\
-  -d '{"email":"admin@svnhost.pl","password":"admin123"}'
-# → {"success":true,"data":{"user":{...},"token":"abc-123-..."}}
-
-# ── Sprawdź sesję (podmień TOKEN) ───────────────
-curl http://localhost:3001/api/auth/me \\
-  -H "Authorization: Bearer TOKEN"
-
-# ── Lista użytkowników (admin) ──────────────────
-curl http://localhost:3001/api/auth/admin/users \\
-  -H "Authorization: Bearer ADMIN_TOKEN"
-
-# ── Wylogowanie ─────────────────────────────────
-curl -X POST http://localhost:3001/api/auth/logout \\
-  -H "Authorization: Bearer TOKEN"`} />
-          </GuideSection>
-
-          <GuideSection id="db-files" title="8. Pliki systemu auth" icon={<Server size={16} style={{ color: '#64748b' }} />}>
+          <GuideSection id="db-info" title="📋 Architektura — co gdzie jest" icon={<Info size={16} style={{ color: '#6366f1' }} />}>
             <CodeBlock lang="text" code={`backend/
-├── data/
-│   └── svnhost.db              ← plik SQLite (tworzony automatycznie)
-├── src/
-│   ├── database.ts             ← initDatabase(), tabele, CRUD users/sessions
-│   ├── authMiddleware.ts       ← authMiddleware, adminMiddleware
-│   ├── authRoutes.ts           ← POST /register, /login, GET /me, etc.
-│   ├── index.ts                ← app.use('/api/auth', authRouter)
-│   └── routes.ts               ← pozostałe endpointy (serwery, pliki...)
+├── data/svnhost.db              ← plik SQLite (auto-tworzony)
+├── src/database.ts              ← initDatabase(), CRUD users/sessions
+├── src/authMiddleware.ts        ← authMiddleware, adminMiddleware
+├── src/authRoutes.ts            ← /register, /login, /me, /logout, admin CRUD
+└── src/index.ts                 ← app.use('/api/auth', authRouter)
 
-src/
-├── services/
-│   └── backendApi.ts           ← backendApi.auth.*, token management
-├── store/
-│   └── store.ts                ← loadCurrentUser(), setCurrentUserFromApi()
-├── pages/auth/
-│   ├── Login.tsx               ← async login via backendApi
-│   └── Register.tsx            ← async register via backendApi
-└── App.tsx                     ← loadCurrentUser() on startup`} />
+src/services/backendApi.ts       ← backendApi.auth.*, token w localStorage
+src/store/store.ts               ← loadCurrentUser(), setCurrentUserFromApi()
+src/pages/auth/Login.tsx         ← async login via backendApi
+src/pages/auth/Register.tsx      ← async register via backendApi
+src/App.tsx                      ← loadCurrentUser() on startup
+
+Endpointy API (/api/auth/):
+  POST /register        { email, username, password }  → { user, token }
+  POST /login           { email, password }            → { user, token }
+  GET  /me              (Bearer token)                 → { user }
+  POST /logout          (Bearer token)                 → wyloguj sesję
+  POST /logout-all      (Bearer token)                 → wyloguj wszystko
+  PUT  /profile         { username?, fullName?, ... }   → { user }
+  POST /change-password { currentPassword, newPassword }→ { token }
+  GET  /sessions        (Bearer token)                 → lista sesji
+  GET  /admin/users     (admin only)                   → lista userów
+  PUT  /admin/users/:id (admin only)                   → edytuj usera
+  DELETE /admin/users/:id (admin only)                 → usuń usera`} />
           </GuideSection>
 
-          <GuideSection id="db-backup" title="9. Backup bazy danych" icon={<HardDrive size={16} style={{ color: '#22c55e' }} />}>
-            <CodeBlock lang="bash" code={`# ── Backup ──────────────────────────────────────
-cp ~/strona-svnhost/backend/data/svnhost.db ~/backup-svnhost-$(date +%Y%m%d).db
+          <GuideSection id="db-cmd1" title="⚡ Komenda 1 — Instalacja zależności" icon={<Database size={16} style={{ color: '#22c55e' }} />}>
+            <p>Na serwerze, w katalogu projektu:</p>
+            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
+#  Instalacja zależności auth (SQLite + bcrypt)
+# ══════════════════════════════════════════════════════
 
-# ── Automatyczny backup (cron, codziennie o 3:00) ──
-crontab -e
-# Dodaj linię:
-0 3 * * * cp /home/ubuntu/strona-svnhost/backend/data/svnhost.db /home/ubuntu/backups/svnhost-$(date +\%Y\%m\%d).db
-
-# ── Przywracanie ────────────────────────────────
-sudo systemctl stop svnhost-backend
-cp ~/backup-svnhost-20260217.db ~/strona-svnhost/backend/data/svnhost.db
-sudo systemctl start svnhost-backend
-
-# ── Podgląd bazy z terminala ────────────────────
-sqlite3 ~/strona-svnhost/backend/data/svnhost.db
-.tables
-SELECT id, email, username, role FROM users;
-SELECT token, userId, lastActive FROM sessions;
-.quit`} />
+cd ~/strona-svnhost/backend && \\
+npm install better-sqlite3 bcryptjs uuid && \\
+npm install -D @types/better-sqlite3 @types/bcryptjs @types/uuid && \\
+npm rebuild better-sqlite3 && \\
+echo 'Gotowe — zależnosci auth zainstalowane'`} />
           </GuideSection>
 
-          <GuideSection id="db-security" title="10. Bezpieczeństwo — co zmienić na produkcji" icon={<AlertTriangle size={16} style={{ color: '#ef4444' }} />}>
-            <CodeBlock lang="bash" code={`# 1. ZMIEŃ hasło admina natychmiast po deploy:
-#    Zaloguj się jako admin@svnhost.pl / admin123
-#    → Ustawienia → Zmień hasło
+          <GuideSection id="db-cmd2" title="⚡ Komenda 2 — Test wszystkich endpointów" icon={<Key size={16} style={{ color: '#8b5cf6' }} />}>
+            <p>Skopiuj i wklej — przetestuje rejestrację, login, sesję, admin i wylogowanie:</p>
+            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
+#  Test auth API (zamien localhost:3001 na swoj adres)
+# ══════════════════════════════════════════════════════
 
-# 2. Plik bazy NIE powinien być w git:
-echo "backend/data/" >> .gitignore
+API="http://localhost:3001/api/auth" && \\
 
-# 3. Uprawnienia pliku bazy:
-chmod 600 ~/strona-svnhost/backend/data/svnhost.db
+echo "=== 1. Rejestracja ===" && \\
+curl -s -X POST $API/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"test@test.pl","username":"TestUser","password":"test123"}' && \\
 
-# 4. Opcjonalnie — wyłącz rejestrację otwartą:
-#    W authRoutes.ts, w POST /register dodaj:
-#    if (!ALLOW_REGISTRATION) return res.status(403).json(...);
+echo "" && echo "=== 2. Login admin ===" && \\
+TOKEN=$(curl -s -X POST $API/login \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"admin@svnhost.pl","password":"admin123"}' | grep -o '"token":"[^"]*"' | cut -d'"' -f4) && \\
+echo "Token: $TOKEN" && \\
 
-# 5. Rate limiting (ochrona przed brute-force):
-npm install express-rate-limit
-# W index.ts:
-import rateLimit from 'express-rate-limit';
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minut
-  max: 20,                    // max 20 prób
-  message: { success: false, error: 'Za dużo prób, spróbuj później' }
-});
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);`} />
+echo "=== 3. Sprawdz sesje ===" && \\
+curl -s $API/me -H "Authorization: Bearer $TOKEN" && \\
+
+echo "" && echo "=== 4. Lista userow (admin) ===" && \\
+curl -s $API/admin/users -H "Authorization: Bearer $TOKEN" && \\
+
+echo "" && echo "=== 5. Wylogowanie ===" && \\
+curl -s -X POST $API/logout -H "Authorization: Bearer $TOKEN" && \\
+
+echo "" && echo 'Wszystkie endpointy OK'`} />
+          </GuideSection>
+
+          <GuideSection id="db-cmd3" title="⚡ Komenda 3 — Backup + bezpieczeństwo" icon={<AlertTriangle size={16} style={{ color: '#ef4444' }} />}>
+            <p>Backup bazy, uprawnienia pliku + automatyczny cron:</p>
+            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
+#  Backup bazy + zabezpieczenia produkcyjne
+# ══════════════════════════════════════════════════════
+
+DB="$HOME/strona-svnhost/backend/data/svnhost.db" && \\
+mkdir -p ~/backups && \\
+
+# Backup teraz
+cp "$DB" ~/backups/svnhost-$(date +%Y%m%d-%H%M).db && \\
+
+# Uprawnienia — tylko owner moze czytac
+chmod 600 "$DB" && \\
+
+# Dodaj do .gitignore
+echo "backend/data/" >> ~/strona-svnhost/.gitignore && \\
+
+# Automatyczny backup codziennie o 3:00
+(crontab -l 2>/dev/null; echo "0 3 * * * cp $DB $HOME/backups/svnhost-\\$(date +\\%Y\\%m\\%d).db") | sort -u | crontab - && \\
+
+echo 'Backup OK, chmod 600, cron ustawiony' && \\
+echo 'Backupy w: ~/backups/' && \\
+ls -la ~/backups/`} />
+            <div style={{ marginTop: 14, padding: 14, background: 'rgba(239,68,68,0.06)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.15)' }}>
+              <p style={{ fontWeight: 600, color: '#ef4444', marginBottom: 4 }}>⚠️ Nie zapomnij</p>
+              <p>1. <strong>Zmien haslo admina</strong> po pierwszym logowaniu (admin123 → coś silnego)<br/>
+              2. <strong>Podglad bazy z terminala:</strong> <code>sqlite3 ~/strona-svnhost/backend/data/svnhost.db</code> → <code>SELECT * FROM users;</code></p>
+            </div>
           </GuideSection>
 
         </div>
