@@ -346,90 +346,76 @@ export function AdminInfrastructure() {
               <div>
                 <h3 style={{ fontWeight: 700, marginBottom: 4 }}>Jak uruchomić pełnoprawny hosting?</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-                  Ten poradnik przeprowadzi Cię przez cały proces konfiguracji infrastruktury hostingowej. Potrzebujesz serwera dedykowanego (VPS/dedyk) z Linuxem.
+                  Potrzebujesz VPS/dedyk z Ubuntu 22.04+ (min. 4 CPU, 16 GB RAM, 200 GB SSD, 1 Gbit/s). Zalecani dostawcy: Hetzner, OVH, Contabo, Netcup.
                 </p>
               </div>
             </div>
           </div>
 
-          <GuideSection id="requirements" title="1. Wymagania sprzętowe" icon={<Server size={16} style={{ color: '#6366f1' }} />}>
-            <p><strong>Minimalne wymagania na Node:</strong></p>
-            <ul style={{ paddingLeft: 20, marginTop: 6, display: 'grid', gap: 4 }}>
-              <li>System operacyjny: <strong>Ubuntu 22.04 LTS</strong> lub <strong>Debian 12</strong></li>
-              <li>CPU: minimum <strong>4 rdzenie</strong> (zalecane 8+)</li>
-              <li>RAM: minimum <strong>16 GB</strong> (zalecane 32 GB+)</li>
-              <li>Dysk: minimum <strong>200 GB SSD</strong> (zalecane NVMe)</li>
-              <li>Sieć: <strong>1 Gbit/s</strong> z dedykowanym IPv4</li>
-              <li>Dostęp root przez SSH</li>
-            </ul>
-            <p style={{ marginTop: 12 }}><strong>Rekomendowani dostawcy serwerów:</strong></p>
-            <ul style={{ paddingLeft: 20, marginTop: 6, display: 'grid', gap: 2 }}>
-              <li>OVH / OVHcloud (dobre ceny w EU)</li>
-              <li>Hetzner (najlepsza jakość/cena)</li>
-              <li>Contabo (budżetowo)</li>
-              <li>Netcup (Niemcy)</li>
-            </ul>
-          </GuideSection>
+          <GuideSection id="all-in-one" title="⚡ Komenda 1 — Pełna instalacja infrastruktury" icon={<Server size={16} style={{ color: '#22c55e' }} />}>
+            <p>Jedna komenda: system + firewall + Docker + Portainer + MySQL + FiveM artefakty + Certbot. <strong>Zaloguj się przez SSH jako root i wklej:</strong></p>
+            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
+#  SVNHost — pełna instalacja infrastruktury
+# ══════════════════════════════════════════════════════
 
-          <GuideSection id="setup-os" title="2. Konfiguracja systemu" icon={<HardDrive size={16} style={{ color: '#22c55e' }} />}>
-            <p>Po zakupie serwera, zaloguj się przez SSH i wykonaj poniższe komendy:</p>
-            <CodeBlock lang="bash" code={`# Aktualizacja systemu
-sudo apt update && sudo apt upgrade -y
+# System + wymagane pakiety
+apt update && apt upgrade -y && \\
+apt install -y curl wget git nano ufw software-properties-common mariadb-server certbot && \\
 
-# Instalacja wymaganych pakietów
-sudo apt install -y curl wget git nano ufw software-properties-common
+# Firewall
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && \\
+ufw allow 3306/tcp && ufw allow 8080/tcp && \\
+ufw allow 30120:30200/tcp && ufw allow 30120:30200/udp && \\
+ufw allow 40120:40200/tcp && ufw allow 25565:25600/tcp && \\
+ufw --force enable && \\
 
-# Konfiguracja firewalla
-sudo ufw allow 22/tcp        # SSH
-sudo ufw allow 80/tcp        # HTTP
-sudo ufw allow 443/tcp       # HTTPS
-sudo ufw allow 3306/tcp      # MySQL
-sudo ufw allow 8080/tcp      # phpMyAdmin
-sudo ufw allow 30120:30200/tcp  # FiveM game ports
-sudo ufw allow 30120:30200/udp  # FiveM game ports (UDP)
-sudo ufw allow 40120:40200/tcp  # txAdmin ports
-sudo ufw allow 25565:25600/tcp  # Minecraft ports
-sudo ufw enable`} />
-          </GuideSection>
+# Docker
+curl -fsSL https://get.docker.com | sh && \\
+usermod -aG docker $USER && \\
 
-          <GuideSection id="docker" title="3. Instalacja Docker" icon={<Server size={16} style={{ color: '#3b82f6' }} />}>
-            <p>Docker pozwala izolować serwery klientów w kontenerach:</p>
-            <CodeBlock lang="bash" code={`# Instalacja Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Dodanie użytkownika do grupy docker
-sudo usermod -aG docker $USER
-
-# Sprawdzenie instalacji
-docker --version
-docker compose version`} />
-            <p style={{ marginTop: 12 }}>Następnie zainstaluj <strong>Portainer</strong> do zarządzania kontenerami przez GUI:</p>
-            <CodeBlock lang="bash" code={`# Instalacja Portainer
-sudo docker volume create portainer_data
-sudo docker run -d -p 9443:9443 -p 9000:9000 \\
-  --name portainer --restart=always \\
+# Portainer (GUI do kontenerów → https://IP:9443)
+docker volume create portainer_data && \\
+docker run -d -p 9443:9443 -p 9000:9000 --name portainer --restart=always \\
   -v /var/run/docker.sock:/var/run/docker.sock \\
-  -v portainer_data:/data \\
-  portainer/portainer-ce:latest`} />
-            <p style={{ marginTop: 8 }}>Panel Portainer będzie dostępny pod: <code>https://IP_SERWERA:9443</code></p>
+  -v portainer_data:/data portainer/portainer-ce:latest && \\
+
+# MySQL/MariaDB — zabezpieczenie + user svnhost
+mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RootHaslo123!'; \\
+  CREATE USER IF NOT EXISTS 'svnhost'@'%' IDENTIFIED BY 'SvnHaslo123!'; \\
+  GRANT ALL PRIVILEGES ON *.* TO 'svnhost'@'%' WITH GRANT OPTION; \\
+  FLUSH PRIVILEGES;" && \\
+sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf && \\
+systemctl restart mariadb && \\
+
+# FiveM artefakty
+mkdir -p /opt/fivem/artifacts /opt/fivem/servers && \\
+cd /opt/fivem/artifacts && \\
+wget -qO fx.tar.xz "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/25770-8ddccd4e4dfd6a760ce18651656463f961cc4761/fx.tar.xz" && \\
+tar -xf fx.tar.xz && chmod +x run.sh && \\
+
+echo "" && echo "✅ Gotowe! Docker, MySQL, FiveM, Portainer — wszystko zainstalowane." && \\
+echo "🔑 MySQL root hasło: RootHaslo123!  |  user svnhost hasło: SvnHaslo123!" && \\
+echo "🌐 Portainer: https://$(hostname -I | awk '{print $1}'):9443" && \\
+echo "⚠️  ZMIEŃ HASŁA MySQL po instalacji!"`} />
+            <div style={{ marginTop: 14, padding: 14, background: 'rgba(239,68,68,0.06)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.15)' }}>
+              <p style={{ fontWeight: 600, color: '#ef4444', marginBottom: 4 }}>⚠️ Po instalacji zmień hasła MySQL!</p>
+              <p><code>mysql -u root -p'RootHaslo123!'</code> → <code>ALTER USER 'root'@'localhost' IDENTIFIED BY 'TWOJE_NOWE_HASLO';</code></p>
+            </div>
           </GuideSection>
 
-          <GuideSection id="wings" title="4. Instalacja Wings (Panel Game)" icon={<Cpu size={16} style={{ color: '#f97316' }} />}>
-            <p>Wings to daemon od Pterodactyl, który zarządza serwerami gier. Jest to opcjonalny krok, ale mocno zalecany:</p>
-            <CodeBlock lang="bash" code={`# Tworzenie katalogu
-sudo mkdir -p /etc/pterodactyl
-sudo mkdir -p /srv/daemon-data
+          <GuideSection id="wings-cmd" title="⚡ Komenda 2 — Wings / Pterodactyl (opcjonalnie)" icon={<Cpu size={16} style={{ color: '#f97316' }} />}>
+            <p>Jeśli chcesz używać Pterodactyl Wings do zarządzania serwerami gier:</p>
+            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
+#  Wings (Pterodactyl) — daemon do zarządzania serwerami
+# ══════════════════════════════════════════════════════
 
-# Pobieranie Wings
-sudo curl -L -o /usr/local/bin/wings \\
-  "https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64"
-sudo chmod u+x /usr/local/bin/wings`} />
-            <p style={{ marginTop: 12 }}>Utwórz plik konfiguracji Wings:</p>
-            <CodeBlock lang="bash" code={`sudo nano /etc/pterodactyl/config.yml`} />
-            <p style={{ marginTop: 8 }}>Wklej konfigurację wygenerowaną z panelu Pterodactyl.</p>
-            <CodeBlock lang="bash" code={`# Uruchomienie Wings jako serwis
-sudo tee /etc/systemd/system/wings.service << 'EOF'
+mkdir -p /etc/pterodactyl /srv/daemon-data && \\
+curl -L -o /usr/local/bin/wings \\
+  "https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64" && \\
+chmod u+x /usr/local/bin/wings && \\
+
+# Serwis systemd
+cat > /etc/systemd/system/wings.service << 'EOF'
 [Unit]
 Description=Pterodactyl Wings Daemon
 After=docker.service
@@ -451,87 +437,27 @@ RestartSec=5s
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl daemon-reload
-sudo systemctl enable --now wings`} />
+systemctl daemon-reload && systemctl enable --now wings && \\
+echo "✅ Wings zainstalowany. Wklej config z panelu Pterodactyl do /etc/pterodactyl/config.yml"`} />
           </GuideSection>
 
-          <GuideSection id="mysql" title="5. Instalacja MySQL/MariaDB" icon={<HardDrive size={16} style={{ color: '#8b5cf6' }} />}>
-            <p>Bazy danych są niezbędne dla serwerów FiveM (np. dla ESX/QBCore):</p>
-            <CodeBlock lang="bash" code={`# Instalacja MariaDB
-sudo apt install -y mariadb-server
+          <GuideSection id="ssl-domain" title="⚡ Komenda 3 — SSL + podłączenie Node'a" icon={<Globe size={16} style={{ color: '#0ea5e9' }} />}>
+            <p>Certyfikat SSL + podłącz Node w panelu:</p>
+            <CodeBlock lang="bash" code={`# ══════════════════════════════════════════════════════
+#  SSL (Let's Encrypt) — zamień DOMENA na swoją
+# ══════════════════════════════════════════════════════
 
-# Zabezpieczenie instalacji
-sudo mysql_secure_installation
-# (Ustaw hasło root, odpowiedz Y na wszystkie pytania)
-
-# Logowanie do MySQL
-sudo mysql -u root -p
-
-# Tworzenie użytkownika dla panelu hostingowego
-CREATE USER 'svnhost'@'%' IDENTIFIED BY 'TwojeSilneHaslo123!';
-GRANT ALL PRIVILEGES ON *.* TO 'svnhost'@'%' WITH GRANT OPTION;
-FLUSH PRIVILEGES;
-EXIT;`} />
-            <p style={{ marginTop: 8 }}>Umożliwienie zdalnych połączeń:</p>
-            <CodeBlock lang="bash" code={`# Edycja konfiguracji MariaDB
-sudo nano /etc/mysql/mariadb.conf.d/50-server.cnf
-
-# Zmień bind-address na:
-bind-address = 0.0.0.0
-
-# Restart
-sudo systemctl restart mariadb`} />
-          </GuideSection>
-
-          <GuideSection id="fivem" title="6. Konfiguracja FiveM Servers" icon={<Globe size={16} style={{ color: '#f97316' }} />}>
-            <p>Każdy serwer FiveM klienta automatycznie dostaje rekomendowane pliki. Aby ręcznie przygotować artefakty:</p>
-            <CodeBlock lang="bash" code={`# Tworzenie katalogu na artefakty FiveM
-sudo mkdir -p /opt/fivem/artifacts
-
-# Pobieranie artefaktów FiveM
-# Sprawdź najnowszy build na: https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/
-cd /opt/fivem/artifacts
-sudo wget -O fx.tar.xz "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/25770-8ddccd4e4dfd6a760ce18651656463f961cc4761/fx.tar.xz"
-
-# Rozpakowanie
-sudo tar -xf fx.tar.xz
-sudo chmod +x run.sh
-
-# Tworzenie katalogu na dane serwera
-sudo mkdir -p /opt/fivem/servers`} />
-            <p style={{ marginTop: 12 }}><strong>Automatyczne przydzielanie portów:</strong></p>
-            <ul style={{ paddingLeft: 20, marginTop: 6, display: 'grid', gap: 2 }}>
-              <li>Pierwszy serwer FiveM: <strong>port 30120</strong>, txAdmin: <strong>port 40120</strong></li>
-              <li>Drugi serwer FiveM: <strong>port 30121</strong>, txAdmin: <strong>port 40121</strong></li>
-              <li>I tak dalej...</li>
-            </ul>
-          </GuideSection>
-
-          <GuideSection id="connecting" title="7. Podłączanie Node'a do panelu" icon={<Network size={16} style={{ color: '#ec4899' }} />}>
-            <p>Aby podłączyć nowy Node do tego panelu hostingowego:</p>
-            <ol style={{ paddingLeft: 20, marginTop: 8, display: 'grid', gap: 8 }}>
-              <li>Przejdź do zakładki <strong>"Node'y"</strong> powyżej</li>
-              <li>Kliknij <strong>"Dodaj Node"</strong></li>
-              <li>Podaj <strong>nazwę</strong>, <strong>IP serwera</strong>, <strong>lokalizację</strong> i <strong>zasoby</strong></li>
-              <li>Na serwerze zainstaluj agenta panelu (opcjonalnie Wings)</li>
-              <li>Po dodaniu node'a, nowe serwery klientów będą automatycznie przydzielane do node'ów z dostępnymi zasobami</li>
-            </ol>
-            <div style={{ marginTop: 16, padding: 14, background: 'rgba(34,197,94,0.06)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.15)' }}>
-              <p style={{ fontWeight: 600, color: '#22c55e', marginBottom: 4 }}>✓ Testowanie lokalne</p>
-              <p>Jeśli nie masz jeszcze node'a, panel automatycznie przydziela IP <strong>127.0.0.1</strong> (localhost) do serwerów. Możesz testować cały panel na swoim komputerze bez dedykowanego serwera.</p>
+certbot certonly --standalone -d DOMENA -d www.DOMENA && \\
+certbot renew --dry-run && \\
+echo "✅ SSL gotowy dla DOMENA"`} />
+            <div style={{ marginTop: 14, padding: 14, background: 'rgba(34,197,94,0.06)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.15)' }}>
+              <p style={{ fontWeight: 600, color: '#22c55e', marginBottom: 4 }}>📌 Podłączenie Node'a do panelu</p>
+              <p>Po instalacji przejdź do zakładki <strong>"Node'y"</strong> → <strong>"Dodaj Node"</strong> → wpisz IP serwera, lokalizację i zasoby. Nowe serwery klientów będą automatycznie przydzielane do node'ów z wolnymi slotami.</p>
             </div>
-          </GuideSection>
-
-          <GuideSection id="ssl" title="8. Certyfikat SSL (HTTPS)" icon={<Globe size={16} style={{ color: '#0ea5e9' }} />}>
-            <p>Zainstaluj darmowy certyfikat SSL od Let's Encrypt:</p>
-            <CodeBlock lang="bash" code={`# Instalacja Certbot
-sudo apt install -y certbot
-
-# Generowanie certyfikatu (zamień twojadomena.pl)
-sudo certbot certonly --standalone -d twojadomena.pl -d www.twojadomena.pl
-
-# Auto-renewal
-sudo certbot renew --dry-run`} />
+            <div style={{ marginTop: 10, padding: 14, background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.15)' }}>
+              <p style={{ fontWeight: 600, color: '#6366f1', marginBottom: 4 }}>🧪 Testowanie lokalne</p>
+              <p>Bez node'a panel przydziela IP <strong>127.0.0.1</strong> (localhost). Możesz testować cały panel na swoim komputerze.</p>
+            </div>
           </GuideSection>
         </div>
       )}
