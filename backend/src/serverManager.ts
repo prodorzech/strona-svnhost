@@ -34,12 +34,12 @@ const consoleLogs = new Map<string, ConsoleLog[]>();
 const MAX_LOGS = 500;
 
 function getServerDir(serverId: string): string {
-  const base = process.env.SERVERS_PATH || './servers';
+  const base = process.env.SERVERS_PATH || path.join(__dirname, '..', 'servers');
   return path.resolve(base, serverId);
 }
 
 function getFxServerPath(): string {
-  const p = process.env.FXSERVER_PATH || './fxserver';
+  const p = process.env.FXSERVER_PATH || path.join(__dirname, '..', 'fxserver');
   return path.resolve(p);
 }
 
