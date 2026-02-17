@@ -20,27 +20,35 @@ export function AdminSettingsPage() {
   const [phpMyAdminUrl, setPhpMyAdminUrl] = useState(s.phpMyAdminUrl);
   const [phpMyAdminEnabled, setPhpMyAdminEnabled] = useState(s.phpMyAdminEnabled);
   const [disabledOffers, setDisabledOffers] = useState<ServerType[]>(s.disabledOffers || []);
-  const [loginEnabled, setLoginEnabled] = useState(true);
+  const [loginEnabled, setLoginEnabled] = useState(s.loginEnabled);
 
   const [showSecret, setShowSecret] = useState(false);
   const [showWebhook, setShowWebhook] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loginSaving, setLoginSaving] = useState(false);
 
-  // Load loginEnabled from backend on mount
+  // Sync loginEnabled from backend on mount
   useEffect(() => {
     backendApi.settings.getPublic().then(res => {
       if (res.success && res.data) {
-        setLoginEnabled(res.data.loginEnabled);
+        const val = res.data.loginEnabled;
+        setLoginEnabled(val);
+        updateAdminSettings({ loginEnabled: val });
       }
     });
   }, []);
 
   const handleLoginToggle = async (enabled: boolean) => {
+    const prev = loginEnabled;
     setLoginSaving(true);
     setLoginEnabled(enabled);
-    await backendApi.settings.update({ loginEnabled: String(enabled) });
-    updateAdminSettings({ loginEnabled: enabled });
+    try {
+      const res = await backendApi.settings.update({ loginEnabled: String(enabled) });
+      if (!res.success) throw new Error('save failed');
+      updateAdminSettings({ loginEnabled: enabled });
+    } catch {
+      setLoginEnabled(prev); // revert on error
+    }
     setLoginSaving(false);
   };
 
