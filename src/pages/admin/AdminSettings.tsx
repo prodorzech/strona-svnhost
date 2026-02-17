@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStoreState } from '../../store/useStore';
 import { updateAdminSettings } from '../../store/store';
 import type { ServerType } from '../../store/types';
+import { backendApi } from '../../services/backendApi';
 import {
   Settings, CreditCard, Eye, EyeOff, Save, CheckCircle2,
   AlertTriangle, ExternalLink, HardDrive, ShoppingBag,
-  Monitor, Gamepad2, Bot,
+  Monitor, Gamepad2, Bot, LogIn,
 } from 'lucide-react';
 
 export function AdminSettingsPage() {
@@ -19,10 +20,29 @@ export function AdminSettingsPage() {
   const [phpMyAdminUrl, setPhpMyAdminUrl] = useState(s.phpMyAdminUrl);
   const [phpMyAdminEnabled, setPhpMyAdminEnabled] = useState(s.phpMyAdminEnabled);
   const [disabledOffers, setDisabledOffers] = useState<ServerType[]>(s.disabledOffers || []);
+  const [loginEnabled, setLoginEnabled] = useState(true);
 
   const [showSecret, setShowSecret] = useState(false);
   const [showWebhook, setShowWebhook] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loginSaving, setLoginSaving] = useState(false);
+
+  // Load loginEnabled from backend on mount
+  useEffect(() => {
+    backendApi.settings.getPublic().then(res => {
+      if (res.success && res.data) {
+        setLoginEnabled(res.data.loginEnabled);
+      }
+    });
+  }, []);
+
+  const handleLoginToggle = async (enabled: boolean) => {
+    setLoginSaving(true);
+    setLoginEnabled(enabled);
+    await backendApi.settings.update({ loginEnabled: String(enabled) });
+    updateAdminSettings({ loginEnabled: enabled });
+    setLoginSaving(false);
+  };
 
   const handleSave = () => {
     updateAdminSettings({
@@ -179,6 +199,54 @@ export function AdminSettingsPage() {
             <input type="checkbox" checked={phpMyAdminEnabled} onChange={e => setPhpMyAdminEnabled(e.target.checked)}
               style={{ accentColor: 'var(--accent)', width: 18, height: 18 }} />
             <span>Włącz phpMyAdmin (widoczny dla klientów w zakładce baz danych)</span>
+          </label>
+        </div>
+      </div>
+
+      {/* ═══ LOGIN TOGGLE SECTION ═══ */}
+      <div className="dash-card" style={{ marginBottom: 20, overflow: 'hidden' }}>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: loginEnabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+          }}>
+            <LogIn size={18} color="#fff" />
+          </div>
+          <div>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem' }}>Logowanie klientów</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Zablokuj lub odblokuj dostęp do panelu klienta</p>
+          </div>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+            padding: '14px 18px', borderRadius: 10,
+            background: loginEnabled ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)',
+            border: `1px solid ${loginEnabled ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'}`,
+            transition: 'all 0.2s',
+          }}>
+            <input type="checkbox" checked={loginEnabled}
+              onChange={e => handleLoginToggle(e.target.checked)}
+              disabled={loginSaving}
+              style={{ accentColor: loginEnabled ? '#22c55e' : '#ef4444', width: 20, height: 20, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                {loginEnabled ? 'Logowanie włączone' : 'Logowanie wyłączone'}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                {loginEnabled
+                  ? 'Klienci mogą się logować i rejestrować. Przycisk "Panel Klienta" na stronie głównej jest aktywny.'
+                  : 'Klienci NIE mogą się logować ani rejestrować. Przycisk "Panel Klienta" jest wyszarzony. Admin nadal może się logować.'}
+              </div>
+            </div>
+            <span style={{
+              padding: '4px 14px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700,
+              background: loginEnabled ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+              color: loginEnabled ? '#22c55e' : '#ef4444',
+            }}>
+              {loginSaving ? '...' : loginEnabled ? 'ON' : 'OFF'}
+            </span>
           </label>
         </div>
       </div>

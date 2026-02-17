@@ -120,6 +120,23 @@ export function initDatabase(): void {
     );
   `);
 
+  // ── Settings table ───────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
+  // Seed default settings
+  const settingsDefaults: [string, string][] = [
+    ['loginEnabled', 'true'],
+    ['registerEnabled', 'true'],
+  ];
+  for (const [key, value] of settingsDefaults) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  }
+
   // ── Seed admin if no users ───────────────────────────
   const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users').get() as any).cnt;
   if (userCount === 0) {
@@ -351,6 +368,24 @@ export function deleteUserSessions(userId: string): void {
 
 export function getUserSessions(userId: string): DbSession[] {
   return db.prepare('SELECT * FROM sessions WHERE userId = ? ORDER BY lastActive DESC').all(userId) as DbSession[];
+}
+
+// ── Settings CRUD ──────────────────────────────────
+
+export function getSetting(key: string): string | null {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return row ? row.value : null;
+}
+
+export function setSetting(key: string, value: string): void {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+}
+
+export function getAllSettings(): Record<string, string> {
+  const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
+  const result: Record<string, string> = {};
+  for (const row of rows) result[row.key] = row.value;
+  return result;
 }
 
 export function getNextAvailableMcPort(basePort: number = 25565): number {

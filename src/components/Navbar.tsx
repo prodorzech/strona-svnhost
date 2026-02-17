@@ -5,6 +5,7 @@ import type { Language } from '../i18n';
 import { languageNames, languageFlags } from '../i18n';
 import { getCurrentUser } from '../store/store';
 import { getLogoForAccent } from '../utils/logo';
+import { backendApi } from '../services/backendApi';
 import './Navbar.css';
 
 export function Navbar() {
@@ -12,7 +13,16 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [loginEnabled, setLoginEnabled] = useState(true);
   const langRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    backendApi.settings.getPublic().then(res => {
+      if (res.success && res.data) {
+        setLoginEnabled(res.data.loginEnabled);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -63,13 +73,29 @@ export function Navbar() {
 
         <div className="navbar__actions">
           {/* Panel Klienta button */}
-          <a
-            href={getCurrentUser() ? '/dashboard' : '/login'}
-            className="navbar__panel-btn"
-          >
-            <LogIn size={16} />
-            <span>{t.nav.dashboard}</span>
-          </a>
+          {loginEnabled || getCurrentUser() ? (
+            <a
+              href={getCurrentUser() ? '/dashboard' : '/login'}
+              className="navbar__panel-btn"
+            >
+              <LogIn size={16} />
+              <span>{t.nav.dashboard}</span>
+            </a>
+          ) : (
+            <span
+              className="navbar__panel-btn"
+              style={{
+                opacity: 0.4,
+                cursor: 'not-allowed',
+                pointerEvents: 'none',
+                filter: 'grayscale(1)',
+              }}
+              title="Logowanie jest tymczasowo wyłączone"
+            >
+              <LogIn size={16} />
+              <span>{t.nav.dashboard}</span>
+            </span>
+          )}
 
           {/* Language switcher */}
           <div className="navbar__lang" ref={langRef}>

@@ -123,6 +123,14 @@ export const backendApi = {
     deleteUser: (id: string) => apiCall(`/auth/admin/users/${id}`, { method: 'DELETE' }),
   },
 
+  // Settings
+  settings: {
+    getPublic: () => apiCall<{ loginEnabled: boolean; registerEnabled: boolean }>('/settings/public'),
+    getAll: () => apiCall<Record<string, string>>('/settings'),
+    update: (data: Record<string, string>) =>
+      apiCall<Record<string, string>>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  },
+
   // Health check
   health: () => apiCall<{ status: string; fxServerInstalled: boolean }>('/health'),
 

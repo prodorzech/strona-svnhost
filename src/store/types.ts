@@ -274,6 +274,7 @@ export interface AdminSettings {
   phpMyAdminUrl: string;
   phpMyAdminEnabled: boolean;
   disabledOffers: ServerType[];
+  loginEnabled: boolean;
 }
 
 // ── Custom configurator pricing & limits per server type ───

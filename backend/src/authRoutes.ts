@@ -17,6 +17,7 @@ import {
   getAllServers,
 } from './database';
 import { AuthRequest, authMiddleware, adminMiddleware } from './authMiddleware';
+import { getSetting } from './database';
 
 const authRouter = Router();
 
@@ -27,6 +28,10 @@ const authRouter = Router();
 // ── Register ───────────────────────────────────────────
 authRouter.post('/register', (req: AuthRequest, res: Response) => {
   try {
+    if (getSetting('loginEnabled') === 'false') {
+      res.status(403).json({ success: false, error: 'Logowanie jest tymczasowo wyłączone' });
+      return;
+    }
     const { email, username, password } = req.body;
 
     if (!email || !username || !password) {
@@ -63,6 +68,15 @@ authRouter.post('/register', (req: AuthRequest, res: Response) => {
 // ── Login ──────────────────────────────────────────────
 authRouter.post('/login', (req: AuthRequest, res: Response) => {
   try {
+    if (getSetting('loginEnabled') === 'false') {
+      // Allow admin login even when disabled
+      const { email, password } = req.body;
+      const adminUser = findUserByEmail(email);
+      if (!adminUser || adminUser.role !== 'admin') {
+        res.status(403).json({ success: false, error: 'Logowanie jest tymczasowo wyłączone' });
+        return;
+      }
+    }
     const { email, password } = req.body;
 
     if (!email || !password) {

@@ -6,14 +6,41 @@ import {
   updateServerCfg, isFxServerInstalled, getProcessInfo, getProcessUsage,
   isJavaInstalled, getJavaVersion,
 } from './serverManager';
-import { getAllServers, getServerById } from './database';
+import { getAllServers, getServerById, getSetting, setSetting, getAllSettings } from './database';
 import { ApiResponse, CreateServerRequest } from './types';
 import { isWslInstalled, getWslVersion } from './vpsManager';
 import { createMysqlDatabase, deleteMysqlDatabase, isMysqlAvailable } from './mysqlManager';
 
+import { authMiddleware, adminMiddleware, AuthRequest } from './authMiddleware';
+
 const router = Router();
 
 const startedAt = Date.now();
+
+// ── Public settings (anyone can read) ───────────────────
+router.get('/settings/public', (_req: Request, res: Response) => {
+  const loginEnabled = getSetting('loginEnabled') !== 'false';
+  const registerEnabled = getSetting('registerEnabled') !== 'false';
+  res.json({ success: true, data: { loginEnabled, registerEnabled } });
+});
+
+// ── Admin settings (read all) ───────────────────────────
+router.get('/settings', authMiddleware, adminMiddleware, (_req: AuthRequest, res: Response) => {
+  res.json({ success: true, data: getAllSettings() });
+});
+
+// ── Admin settings (update) ─────────────────────────────
+router.put('/settings', authMiddleware, adminMiddleware, (req: AuthRequest, res: Response) => {
+  const updates = req.body as Record<string, string>;
+  if (!updates || typeof updates !== 'object') {
+    res.status(400).json({ success: false, error: 'Body must be an object of key-value pairs' });
+    return;
+  }
+  for (const [key, value] of Object.entries(updates)) {
+    setSetting(key, String(value));
+  }
+  res.json({ success: true, data: getAllSettings() });
+});
 
 // ── Health ──────────────────────────────────────────────
 router.get('/health', async (_req: Request, res: Response) => {

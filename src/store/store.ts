@@ -184,6 +184,7 @@ const defaultAdminSettings: AdminSettings = {
   phpMyAdminUrl: '',
   phpMyAdminEnabled: false,
   disabledOffers: [],
+  loginEnabled: true,
 };
 
 function defaultConfigLimits(overrides?: Partial<CustomConfigLimits>): CustomConfigLimits {
