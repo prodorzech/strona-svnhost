@@ -293,6 +293,7 @@ export function installPythonDependencies(
       cwd: serverDir,
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
     });
 
     child.stdout?.on('data', (data: Buffer) => {
@@ -324,7 +325,8 @@ export function installPythonDependencies(
 // ── Spawn bot process ──────────────────────────────────
 
 export function spawnNodeJsBot(server: GameServer, serverDir: string): ChildProcess {
-  const child = spawn('node', ['index.js'], {
+  const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node';
+  const child = spawn(nodeCmd, ['index.js'], {
     cwd: serverDir,
     env: {
       ...process.env,
@@ -332,6 +334,7 @@ export function spawnNodeJsBot(server: GameServer, serverDir: string): ChildProc
       PYTHONPATH: undefined,
     },
     stdio: ['pipe', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
   });
   return child;
 }
@@ -348,6 +351,7 @@ export function spawnPythonBot(server: GameServer, serverDir: string): ChildProc
       PYTHONUNBUFFERED: '1',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
   });
   return child;
 }
