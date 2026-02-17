@@ -264,10 +264,10 @@ export function ServerDetail() {
   const isMinecraft = server.type === 'minecraft';
   const isBot = server.type === 'bot';
   const needsSftp = isGame || isBot;
-  // Merge backend data for VPS SSH credentials
-  const sshUser = (real.backendServer as any)?.sshUser || server.sshUser || 'admin';
+  // Merge backend data for SSH/SFTP credentials
+  const sshUser = (real.backendServer as any)?.sshUser || server.sshUser || (isVps ? 'root' : 'svnhost');
   const sshPassword = (real.backendServer as any)?.sshPassword || server.sshPassword || '';
-  const sshPort = (real.backendServer as any)?.sshPort || server.sshPort || 2222;
+  const sshPort = (real.backendServer as any)?.sshPort || server.sshPort || 22;
   // Use real backend status for ALL server types when backend is online
   const effectiveStatus = (real.backendOnline && real.realStatus) ? real.realStatus : server.status;
   const canStart = effectiveStatus === 'stopped' || effectiveStatus === 'error';
