@@ -531,14 +531,18 @@ sudo certbot renew --dry-run`} />
             <CodeBlock lang="bash" code={`# Aktualizacja systemu
 sudo apt update && sudo apt upgrade -y
 
-# Instalacja Node.js 18+
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# Usuń stare paczki Node (jeśli są)
+sudo apt remove -y libnode-dev libnode72 nodejs 2>/dev/null
+sudo apt autoremove -y
+
+# Instalacja Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # Instalacja Nginx + narzędzi
 sudo apt install -y nginx git curl
 
-# Sprawdź wersje
+# Sprawdź wersje (node musi być 20+)
 node -v
 npm -v
 nginx -v`} />
@@ -556,9 +560,9 @@ dig +short www.twojadomena.pl`} />
 
           <GuideSection id="deploy-build" title="3. Klonowanie i build frontendu" icon={<HardDrive size={16} style={{ color: '#f97316' }} />}>
             <CodeBlock lang="bash" code={`# Klonuj repo
-cd /opt
-git clone https://github.com/prodorzech/strona-svnhost.git svnhost
-cd svnhost
+cd ~
+git clone https://github.com/prodorzech/strona-svnhost.git
+cd ~/strona-svnhost
 
 # Instalacja zależności
 npm install
@@ -580,28 +584,26 @@ sudo chown -R www-data:www-data /var/www/svnhost`} />
 
           <GuideSection id="deploy-backend" title="4. Build i uruchomienie backendu" icon={<Cpu size={16} style={{ color: '#ec4899' }} />}>
             <CodeBlock lang="bash" code={`# Build backendu
-cd /opt/svnhost/backend
+cd ~/strona-svnhost/backend
 npm install
+npm rebuild better-sqlite3
 npm run build
 
-# Utwórz serwis systemd
-sudo cat > /etc/systemd/system/svnhost-backend.service << 'EOF'
+# Utwórz serwis systemd (sudo tee, NIE sudo cat >)
+sudo tee /etc/systemd/system/svnhost-backend.service << 'EOF'
 [Unit]
 Description=SVNHost Backend API
-After=network.target mysql.service
+After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/opt/svnhost/backend
+User=$USER
+WorkingDirectory=$HOME/strona-svnhost/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=PORT=3001
-Environment=MYSQL_HOST=127.0.0.1
-Environment=MYSQL_ROOT_USER=svhhost_admin
-Environment=MYSQL_ROOT_PASS=TwojeSilneHaslo
 
 [Install]
 WantedBy=multi-user.target
@@ -609,17 +611,16 @@ EOF
 
 # Włącz i uruchom
 sudo systemctl daemon-reload
-sudo systemctl enable svnhost-backend
-sudo systemctl start svnhost-backend
+sudo systemctl enable --now svnhost-backend
 
 # Sprawdź
 sudo systemctl status svnhost-backend
-sudo journalctl -u svnhost-backend -f`} />
+sudo journalctl -u svnhost-backend -n 20 --no-pager`} />
           </GuideSection>
 
           <GuideSection id="deploy-nginx" title="5. Konfiguracja Nginx" icon={<Globe size={16} style={{ color: '#3b82f6' }} />}>
-            <CodeBlock lang="bash" code={`# Utwórz konfigurację Nginx
-sudo cat > /etc/nginx/sites-available/svnhost << 'NGINX'
+            <CodeBlock lang="bash" code={`# Utwórz konfigurację Nginx (sudo tee, NIE sudo cat >)
+sudo tee /etc/nginx/sites-available/svnhost << 'NGINX'
 server {
     listen 80;
     server_name twojadomena.pl www.twojadomena.pl;
@@ -685,21 +686,21 @@ sudo certbot renew --dry-run
 
           <GuideSection id="deploy-update" title="7. Aktualizacja strony" icon={<Info size={16} style={{ color: '#f59e0b' }} />}>
             <CodeBlock lang="bash" code={`# Aktualizacja frontendu
-cd /opt/svnhost
+cd ~/strona-svnhost
 git pull
 npm install
 npm run build
 sudo cp -r dist/* /var/www/svnhost/
 
 # Aktualizacja backendu
-cd /opt/svnhost/backend
+cd ~/strona-svnhost/backend
 npm install
+npm rebuild better-sqlite3
 npm run build
 sudo systemctl restart svnhost-backend
 
 # Sprawdź status
-sudo systemctl status svnhost-backend
-curl -s https://twojadomena.pl/api/health`} />
+sudo systemctl status svnhost-backend`} />
           </GuideSection>
 
           <GuideSection id="deploy-all" title="⚡ Szybki deploy — wszystko w jednym" icon={<Server size={16} style={{ color: '#6366f1' }} />}>
@@ -707,13 +708,14 @@ curl -s https://twojadomena.pl/api/health`} />
 
 # 1. Instalacja
 sudo apt update && sudo apt upgrade -y
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt remove -y libnode-dev libnode72 nodejs 2>/dev/null
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs nginx git certbot python3-certbot-nginx
 
 # 2. Klonuj repo
-cd /opt
-git clone https://github.com/prodorzech/strona-svnhost.git svnhost
-cd svnhost
+cd ~
+git clone https://github.com/prodorzech/strona-svnhost.git
+cd ~/strona-svnhost
 
 # 3. Frontend
 cat > .env << 'EOF'
@@ -727,19 +729,20 @@ sudo cp -r dist/* /var/www/svnhost/
 sudo chown -R www-data:www-data /var/www/svnhost
 
 # 4. Backend
-cd /opt/svnhost/backend
+cd ~/strona-svnhost/backend
 npm install
+npm rebuild better-sqlite3
 npm run build
 
-sudo cat > /etc/systemd/system/svnhost-backend.service << 'EOF'
+sudo tee /etc/systemd/system/svnhost-backend.service << 'EOF'
 [Unit]
 Description=SVNHost Backend API
 After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/opt/svnhost/backend
+User=$USER
+WorkingDirectory=$HOME/strona-svnhost/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5
@@ -754,7 +757,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now svnhost-backend
 
 # 5. Nginx
-sudo cat > /etc/nginx/sites-available/svnhost << 'NGINX'
+sudo tee /etc/nginx/sites-available/svnhost << 'NGINX'
 server {
     listen 80;
     server_name TWOJADOMENA.pl www.TWOJADOMENA.pl;
@@ -788,6 +791,8 @@ server {
         add_header Cache-Control "public, immutable";
     }
 }
+NGINX
+
 NGINX
 
 sudo ln -sf /etc/nginx/sites-available/svnhost /etc/nginx/sites-enabled/
