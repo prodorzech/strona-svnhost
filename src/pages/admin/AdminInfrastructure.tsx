@@ -380,8 +380,8 @@ docker run -d -p 9443:9443 -p 9000:9000 --name portainer --restart=always \\
   -v portainer_data:/data portainer/portainer-ce:latest && \\
 
 # MySQL/MariaDB — zabezpieczenie + user svnhost
-mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RootHaslo123!'; \\
-  CREATE USER IF NOT EXISTS 'svnhost'@'%' IDENTIFIED BY 'SvnHaslo123!'; \\
+mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RootHaslo2025'; \\
+  CREATE USER IF NOT EXISTS 'svnhost'@'%' IDENTIFIED BY 'SvnHaslo2025'; \\
   GRANT ALL PRIVILEGES ON *.* TO 'svnhost'@'%' WITH GRANT OPTION; \\
   FLUSH PRIVILEGES;" && \\
 sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf && \\
@@ -393,13 +393,13 @@ cd /opt/fivem/artifacts && \\
 wget -qO fx.tar.xz "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/25770-8ddccd4e4dfd6a760ce18651656463f961cc4761/fx.tar.xz" && \\
 tar -xf fx.tar.xz && chmod +x run.sh && \\
 
-echo "" && echo "✅ Gotowe! Docker, MySQL, FiveM, Portainer — wszystko zainstalowane." && \\
-echo "🔑 MySQL root hasło: RootHaslo123!  |  user svnhost hasło: SvnHaslo123!" && \\
-echo "🌐 Portainer: https://$(hostname -I | awk '{print $1}'):9443" && \\
-echo "⚠️  ZMIEŃ HASŁA MySQL po instalacji!"`} />
+echo '' && echo '✅ Gotowe: Docker, MySQL, FiveM, Portainer — wszystko zainstalowane.' && \\
+echo '🔑 MySQL root haslo: RootHaslo2025  |  user svnhost haslo: SvnHaslo2025' && \\
+echo '🌐 Portainer: https://'$(hostname -I | awk '{print $1}')':9443' && \\
+echo '⚠️  ZMIEN HASLA MySQL po instalacji.'`} />
             <div style={{ marginTop: 14, padding: 14, background: 'rgba(239,68,68,0.06)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.15)' }}>
-              <p style={{ fontWeight: 600, color: '#ef4444', marginBottom: 4 }}>⚠️ Po instalacji zmień hasła MySQL!</p>
-              <p><code>mysql -u root -p'RootHaslo123!'</code> → <code>ALTER USER 'root'@'localhost' IDENTIFIED BY 'TWOJE_NOWE_HASLO';</code></p>
+              <p style={{ fontWeight: 600, color: '#ef4444', marginBottom: 4 }}>⚠️ Po instalacji zmień hasła MySQL</p>
+              <p><code>mysql -u root -p'RootHaslo2025'</code> → <code>ALTER USER 'root'@'localhost' IDENTIFIED BY 'TWOJE_NOWE_HASLO';</code></p>
             </div>
           </GuideSection>
 
