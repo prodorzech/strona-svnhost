@@ -387,11 +387,12 @@ mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RootHaslo2025'; \\
 sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf && \\
 systemctl restart mariadb && \\
 
-# FiveM artefakty
+# FiveM artefakty + symlink do backendu
 mkdir -p /opt/fivem/artifacts /opt/fivem/servers && \\
 cd /opt/fivem/artifacts && \\
 wget -qO fx.tar.xz "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/25770-8ddccd4e4dfd6a760ce18651656463f961cc4761/fx.tar.xz" && \\
 tar -xf fx.tar.xz && chmod +x run.sh && \\
+ln -sf /opt/fivem/artifacts ~/strona-svnhost/backend/fxserver && \\
 
 echo '' && echo '✅ Gotowe: Docker, MySQL, FiveM, Portainer — wszystko zainstalowane.' && \\
 echo '🔑 MySQL root haslo: RootHaslo2025  |  user svnhost haslo: SvnHaslo2025' && \\
